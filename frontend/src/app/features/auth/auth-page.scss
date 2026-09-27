@@ -1,0 +1,17 @@
+:host {
+  display: block;
+  max-width: 420px;
+  margin: 48px auto 0;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 16px;
+}
+
+.form-error {
+  color: var(--mat-sys-error);
+  margin: 0 0 12px;
+}

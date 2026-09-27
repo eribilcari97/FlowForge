@@ -1,0 +1,86 @@
+import { DatePipe } from '@angular/common';
+import { Component, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { MatButtonModule } from '@angular/material/button';
+import { MatCardModule } from '@angular/material/card';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { switchMap } from 'rxjs';
+
+import { problemOf } from '../../core/api/problem';
+import { Project, ProjectService } from './project.service';
+
+@Component({
+  selector: 'app-project-detail',
+  imports: [RouterLink, DatePipe, MatButtonModule, MatCardModule],
+  styleUrl: './projects.scss',
+  template: `
+    <a mat-button routerLink="/projects">← All projects</a>
+
+    @if (notFound()) {
+      <p class="page-error" role="alert">Project not found.</p>
+    } @else if (project(); as project) {
+      <mat-card appearance="outlined">
+        <mat-card-header>
+          <mat-card-title>{{ project.name }}</mat-card-title>
+          <mat-card-subtitle>Created {{ project.createdAt | date: 'medium' }}</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          <p class="description">{{ project.description || 'No description' }}</p>
+          <p>Workflows: {{ project.workflowCount }}</p>
+          @if (error(); as error) {
+            <p class="page-error" role="alert">{{ error }}</p>
+          }
+        </mat-card-content>
+        <mat-card-actions>
+          <a mat-button [routerLink]="['/projects', project.id, 'edit']">Edit</a>
+          <button mat-button class="danger" (click)="delete(project)" [disabled]="deleting()">
+            Delete
+          </button>
+        </mat-card-actions>
+      </mat-card>
+    } @else if (error(); as error) {
+      <p class="page-error" role="alert">{{ error }}</p>
+    } @else {
+      <p>Loading…</p>
+    }
+  `,
+})
+export class ProjectDetail {
+  private readonly projects = inject(ProjectService);
+  private readonly router = inject(Router);
+
+  protected readonly project = signal<Project | null>(null);
+  protected readonly notFound = signal(false);
+  protected readonly error = signal<string | null>(null);
+  protected readonly deleting = signal(false);
+
+  constructor() {
+    inject(ActivatedRoute)
+      .paramMap.pipe(
+        switchMap((params) => this.projects.get(Number(params.get('id')))),
+        takeUntilDestroyed(),
+      )
+      .subscribe({
+        next: (project) => this.project.set(project),
+        error: (error: unknown) =>
+          problemOf(error)?.status === 404
+            ? this.notFound.set(true)
+            : this.error.set('Project could not be loaded.'),
+      });
+  }
+
+  delete(project: Project): void {
+    if (!confirm(`Delete project "${project.name}"?`)) {
+      return;
+    }
+    this.deleting.set(true);
+    this.error.set(null);
+    this.projects.delete(project.id).subscribe({
+      next: () => this.router.navigate(['/projects']),
+      error: (error: unknown) => {
+        this.deleting.set(false);
+        this.error.set(problemOf(error)?.detail ?? 'Project could not be deleted.');
+      },
+    });
+  }
+}

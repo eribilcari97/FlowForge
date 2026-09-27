@@ -9,9 +9,6 @@ interface HealthResponse {
   status: string;
 }
 
-/** Result of the foundation smoke test against `/api/health`. */
-export type ApiHealthCheck = { connected: true; response: unknown } | { connected: false };
-
 @Injectable({ providedIn: 'root' })
 export class HealthService {
   private readonly http = inject(HttpClient);
@@ -22,14 +19,6 @@ export class HealthService {
       map((health) => toStatus(health.status)),
       // Actuator answers 503 with a body of { "status": "DOWN" } when a component (e.g. the database) is down.
       catchError((error: HttpErrorResponse) => of(toStatus(error.error?.status))),
-    );
-  }
-
-  /** Foundation smoke test: verifies the `/api` dev proxy reaches Spring Boot. Any error counts as not connected. */
-  apiHealth(): Observable<ApiHealthCheck> {
-    return this.http.get<unknown>('/api/health').pipe(
-      map((response): ApiHealthCheck => ({ connected: true, response })),
-      catchError(() => of<ApiHealthCheck>({ connected: false })),
     );
   }
 }

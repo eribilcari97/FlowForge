@@ -4,6 +4,10 @@
   <span class="backend-status" [attr.data-status]="backendStatus() ?? 'CHECKING'">
     Backend: {{ backendStatus() ?? 'checking…' }}
   </span>
+  @if (auth.user(); as user) {
+    <span class="user">{{ user.displayName }}</span>
+    <button mat-button class="logout" (click)="auth.logout()">Log out</button>
+  }
 </mat-toolbar>
 
 <main>

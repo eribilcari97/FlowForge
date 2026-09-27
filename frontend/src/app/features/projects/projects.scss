@@ -1,0 +1,37 @@
+:host {
+  display: block;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.page-error {
+  color: var(--mat-sys-error);
+}
+
+.empty,
+.description {
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.danger {
+  color: var(--mat-sys-error);
+}
+
+.form-card form {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 16px;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
