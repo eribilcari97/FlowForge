@@ -42,6 +42,10 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
+      # Use the npm version from package.json "packageManager", not the one bundled with Node.
+      # Different npm versions validate package-lock.json differently.
+      - run: npm install -g "$(node -p "require('./package.json').packageManager")"
+
       - run: npm ci
       - run: npm test -- --watch=false
       - run: npm run build
