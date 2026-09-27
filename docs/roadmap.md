@@ -56,7 +56,7 @@ User accounts and project ownership. Ownership is implemented before any workflo
 
 ### Implementation
 
-- `app_user` and `project` tables (`V1`, `V2`)
+- `"user"` and `project` tables (`V1`, `V2`)
 - Registration, login and JWT authentication (60-minute access token, bcrypt passwords), `GET /api/auth/me`
 - Project CRUD. A project can be deleted only when it's empty.
 - Ownership enforcement: lookups by `id` **and** owner. Other users' resources return `404`.

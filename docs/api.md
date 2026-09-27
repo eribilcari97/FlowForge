@@ -56,7 +56,7 @@ About 30 endpoints. Deliberately **not** in the MVP: admin endpoints, token refr
 |---|---|
 | URLs | Plural nouns. Workflows, executions and jobs have their own top-level URLs because they're linked from many screens. **Steps and schedules are nested under their workflow** because they only exist inside it, and the nesting makes the ownership check obvious (check the workflow, then check the step belongs to it). |
 | Actions | State changes that aren't field edits use a verb sub-resource with `POST`: `/activate`, `/deactivate`, `/cancel`. |
-| IDs | UUID strings |
+| IDs | Numbers (64-bit, sequential). Guessing an ID reveals nothing, because another user's resource returns `404`. |
 | Timestamps | ISO-8601 UTC, e.g. `2026-09-27T06:00:00Z` |
 | Auth | `Authorization: Bearer <jwt>` |
 | Ownership | Someone else's resource → `404` (identical to "doesn't exist") |
@@ -73,7 +73,7 @@ Spring's built-in `ProblemDetail` (RFC 9457), plus a stable `code` the frontend 
   "title": "Bad Request",
   "status": 400,
   "detail": "Validation failed",
-  "instance": "/api/workflows/5f1c…/steps",
+  "instance": "/api/workflows/5/steps",
   "code": "VALIDATION_ERROR",
   "errors": [
     { "field": "key", "message": "must match ^[a-z][a-z0-9_]{0,49}$" },
@@ -111,8 +111,8 @@ Spring's built-in `ProblemDetail` (RFC 9457), plus a stable `code` the frontend 
 { "email": "ana@example.com", "password": "correct-horse-battery", "displayName": "Ana" }
 ```
 
-Validation: valid email ≤ 254 chars; password 10–128 chars; display name 1–100 chars.
-**201** → `{ "id": "…", "email": "ana@example.com", "displayName": "Ana" }` · **400** · **409** `EMAIL_TAKEN`
+Validation: valid email ≤ 254 chars; password at least 10 chars and at most 72 bytes in UTF-8 (the bcrypt input limit); display name 1–100 chars.
+**201** → `{ "id": 1, "email": "ana@example.com", "displayName": "Ana" }` · **400** · **409** `EMAIL_TAKEN`
 
 ### `POST /api/auth/login`
 
@@ -123,7 +123,7 @@ Validation: valid email ≤ 254 chars; password 10–128 chars; display name 1�
 **200**
 
 ```json
-{ "accessToken": "eyJhbGciOiJIUzI1NiJ9…", "expiresIn": 3600, "user": { "id": "…", "email": "ana@example.com", "displayName": "Ana" } }
+{ "accessToken": "eyJhbGciOiJIUzI1NiJ9…", "expiresIn": 3600, "user": { "id": 1, "email": "ana@example.com", "displayName": "Ana" } }
 ```
 
 **401** `INVALID_CREDENTIALS`
@@ -143,7 +143,7 @@ Validation: valid email ≤ 254 chars; password 10–128 chars; display name 1�
 Name 1–100 chars, unique per user. **201** + `Location`:
 
 ```json
-{ "id": "7b1e…", "name": "Acme Shop Ops", "description": "Reports and monitoring", "workflowCount": 0, "createdAt": "2026-09-27T09:01:00Z" }
+{ "id": 7, "name": "Acme Shop Ops", "description": "Reports and monitoring", "workflowCount": 0, "createdAt": "2026-09-27T09:01:00Z" }
 ```
 
 **400** · **409** `DUPLICATE_NAME`
@@ -165,15 +165,15 @@ Name 1–100 chars, unique per user. **201** + `Location`:
 
 ```json
 {
-  "id": "5f1c…",
-  "projectId": "7b1e…",
+  "id": 5,
+  "projectId": 7,
   "name": "Customer onboarding",
   "description": "Creates CRM contact and account, then follows up",
   "status": "ACTIVE",
   "version": 4,
   "steps": [
     {
-      "id": "a1…",
+      "id": 11,
       "key": "create_crm_contact",
       "name": "Create CRM contact",
       "jobType": "HTTP",
@@ -190,7 +190,7 @@ Name 1–100 chars, unique per user. **201** + `Location`:
       "dependsOn": []
     },
     {
-      "id": "d4…",
+      "id": 14,
       "key": "wait_1_day",
       "name": "Wait one day",
       "jobType": "DELAY",
@@ -198,7 +198,7 @@ Name 1–100 chars, unique per user. **201** + `Location`:
       "timeoutSeconds": 30,
       "maxAttempts": 3,
       "retryDelaySeconds": 10,
-      "dependsOn": ["a1…", "b2…"]
+      "dependsOn": [11, 12]
     }
   ],
   "createdAt": "2026-09-20T10:00:00Z",
@@ -262,11 +262,11 @@ Config per job type:
 ### `PUT /api/workflows/{workflowId}/steps/{stepId}/dependencies`
 
 ```json
-{ "dependsOn": ["a1…", "b2…"] }
+{ "dependsOn": [11, 12] }
 ```
 
 Replaces the whole list (an empty list makes the step a root). Every ID must be a step of the same workflow and not the step itself.
-**200** `{ "stepId": "d4…", "dependsOn": ["a1…", "b2…"] }` · **400** · **404** · **422**:
+**200** `{ "stepId": 14, "dependsOn": [11, 12] }` · **400** · **404** · **422**:
 
 ```json
 { "status": 422, "code": "DEPENDENCY_CYCLE", "detail": "This would create a cycle: notify_crm → wait_1_day → notify_crm", "cycle": ["notify_crm", "wait_1_day", "notify_crm"] }
@@ -304,7 +304,7 @@ Optional header: `Idempotency-Key: 6b0f3c1e-…` (the UI generates one per Run-b
 **202 Accepted** + `Location: /api/executions/{id}`:
 
 ```json
-{ "id": "e9…", "workflowId": "5f1c…", "runNumber": 12, "status": "RUNNING", "triggerType": "MANUAL", "createdAt": "2026-09-27T09:30:00Z" }
+{ "id": 91, "workflowId": 5, "runNumber": 12, "status": "RUNNING", "triggerType": "MANUAL", "createdAt": "2026-09-27T09:30:00Z" }
 ```
 
 - Same `Idempotency-Key` again → **200** with the *existing* execution (no second run).
@@ -319,7 +319,7 @@ Also `GET /api/workflows/{workflowId}/executions?page=…`. Items are sorted new
 ```json
 {
   "items": [
-    { "id": "e9…", "workflowId": "5f1c…", "workflowName": "Customer onboarding", "runNumber": 12,
+    { "id": 91, "workflowId": 5, "workflowName": "Customer onboarding", "runNumber": 12,
       "status": "FAILED", "triggerType": "MANUAL", "createdAt": "2026-09-27T09:30:00Z",
       "finishedAt": "2026-09-27T09:31:12Z", "errorSummary": "create_crm_contact failed after 3 attempts: HTTP 503" }
   ],
@@ -333,8 +333,8 @@ The Angular detail page polls this every 2 s while `status = RUNNING`.
 
 ```json
 {
-  "id": "e9…",
-  "workflowId": "5f1c…",
+  "id": 91,
+  "workflowId": 5,
   "workflowName": "Customer onboarding",
   "runNumber": 12,
   "status": "RUNNING",
@@ -344,13 +344,13 @@ The Angular detail page polls this every 2 s while `status = RUNNING`.
   "finishedAt": null,
   "errorSummary": null,
   "jobs": [
-    { "id": "j1…", "stepKey": "create_crm_contact", "jobType": "HTTP", "status": "READY",
+    { "id": 301, "stepKey": "create_crm_contact", "jobType": "HTTP", "status": "READY",
       "attemptCount": 1, "maxAttempts": 3, "availableAt": "2026-09-27T09:30:11Z",
       "lastError": "HTTP 503 Service Unavailable", "dependsOn": [], "startedAt": "2026-09-27T09:30:00Z", "finishedAt": null },
-    { "id": "j2…", "stepKey": "create_account", "jobType": "HTTP", "status": "SUCCEEDED",
+    { "id": 302, "stepKey": "create_account", "jobType": "HTTP", "status": "SUCCEEDED",
       "attemptCount": 1, "maxAttempts": 3, "availableAt": null, "lastError": null, "dependsOn": [],
       "startedAt": "2026-09-27T09:30:00Z", "finishedAt": "2026-09-27T09:30:00Z" },
-    { "id": "j3…", "stepKey": "wait_1_day", "jobType": "DELAY", "status": "PENDING",
+    { "id": 303, "stepKey": "wait_1_day", "jobType": "DELAY", "status": "PENDING",
       "attemptCount": 0, "maxAttempts": 3, "availableAt": null, "lastError": null,
       "dependsOn": ["create_crm_contact", "create_account"], "startedAt": null, "finishedAt": null }
   ]
@@ -372,8 +372,8 @@ Jobs that haven't started become `CANCELLED` immediately. A job currently runnin
 
 ```json
 {
-  "id": "j1…",
-  "executionId": "e9…",
+  "id": 301,
+  "executionId": 91,
   "stepKey": "create_crm_contact",
   "stepName": "Create CRM contact",
   "jobType": "HTTP",
@@ -409,7 +409,7 @@ Jobs that haven't started become `CANCELLED` immediately. A job currently runnin
 **201**:
 
 ```json
-{ "id": "s1…", "cronExpression": "0 8 * * *", "timezone": "Europe/Berlin", "input": {}, "enabled": true,
+{ "id": 3, "cronExpression": "0 8 * * *", "timezone": "Europe/Berlin", "input": {}, "enabled": true,
   "nextRunAt": "2026-09-28T06:00:00Z", "lastRunAt": null }
 ```
 

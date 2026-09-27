@@ -100,7 +100,7 @@ Teams and sharing, webhook triggers from external systems, loops and dynamic fan
 
 | ID | Requirement | Scope |
 |---|---|---|
-| FR-01 | Register with email (unique, case-insensitive), password (10–128 characters) and display name. Passwords are stored with bcrypt. | MVP |
+| FR-01 | Register with email (unique, case-insensitive), password (10–72 characters, at most 72 bytes in UTF-8, because bcrypt reads only the first 72 bytes) and display name. Passwords are stored with bcrypt. | MVP |
 | FR-02 | Log in with email and password and receive a JWT access token valid for 60 minutes. Invalid credentials produce one generic error. | MVP |
 | FR-03 | Every API endpoint except registration, login and health requires a valid token. | MVP |
 | FR-04 | A user can read and modify only resources in their own projects. Another user's resource returns `404`, like a nonexistent one. | MVP |
