@@ -1,13 +1,11 @@
 package com.flowforge;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -16,9 +14,7 @@ import org.springframework.test.web.servlet.assertj.MockMvcTester;
 /**
  * Starts the complete application against a real PostgreSQL container.
  */
-@SpringBootTest
-@AutoConfigureMockMvc
-@Import(TestcontainersConfiguration.class)
+@IntegrationTest
 class ApplicationIntegrationTest {
 
     @Autowired
@@ -57,7 +53,7 @@ class ApplicationIntegrationTest {
 
     @Test
     void unknownApiPathReturnsProblemDetail() {
-        assertThat(mvc.get().uri("/api/does-not-exist"))
+        assertThat(mvc.get().uri("/api/does-not-exist").with(jwt()))
                 .hasStatus(HttpStatus.NOT_FOUND)
                 .hasContentType(MediaType.APPLICATION_PROBLEM_JSON)
                 .bodyJson()

@@ -1,0 +1,4 @@
+flowforge:
+  security:
+    jwt:
+      secret: local-development-only-jwt-secret-not-for-deployment

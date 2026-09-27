@@ -27,3 +27,9 @@ management:
     web:
       exposure:
         include: health
+
+flowforge:
+  security:
+    jwt:
+      secret: ${FLOWFORGE_JWT_SECRET:}
+      access-token-ttl: 60m

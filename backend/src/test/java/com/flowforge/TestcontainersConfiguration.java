@@ -12,7 +12,7 @@ import org.testcontainers.utility.DockerImageName;
  * Test contexts with the same configuration are cached, so the container is shared between test classes.
  */
 @TestConfiguration(proxyBeanMethods = false)
-class TestcontainersConfiguration {
+public class TestcontainersConfiguration {
 
     @Bean
     @ServiceConnection
