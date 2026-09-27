@@ -1,0 +1,23 @@
+# Backend (Maven)
+backend/target/
+backend/.mvn/wrapper/maven-wrapper.jar
+
+# Frontend-specific ignores are in frontend/.gitignore
+
+# Local environment and secrets
+.env
+.env.*
+*.local
+
+# IDEs and editors
+.idea/
+*.iml
+.vscode/
+.settings/
+.project
+.classpath
+
+
+# OS files
+.DS_Store
+Thumbs.db

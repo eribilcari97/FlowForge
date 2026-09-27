@@ -1,0 +1,11 @@
+<mat-toolbar>
+  <a class="brand" routerLink="/">FlowForge</a>
+  <span class="spacer"></span>
+  <span class="backend-status" [attr.data-status]="backendStatus() ?? 'CHECKING'">
+    Backend: {{ backendStatus() ?? 'checking…' }}
+  </span>
+</mat-toolbar>
+
+<main>
+  <router-outlet />
+</main>

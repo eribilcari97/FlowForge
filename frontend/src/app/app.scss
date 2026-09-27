@@ -1,0 +1,30 @@
+.brand {
+  color: inherit;
+  text-decoration: none;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.backend-status {
+  font: var(--mat-sys-label-large);
+  padding: 4px 12px;
+  border-radius: 16px;
+  background: var(--mat-sys-surface-container-highest);
+
+  &[data-status='UP'] {
+    background: var(--mat-sys-primary-container);
+    color: var(--mat-sys-on-primary-container);
+  }
+
+  &[data-status='DOWN'],
+  &[data-status='UNREACHABLE'] {
+    background: var(--mat-sys-error-container);
+    color: var(--mat-sys-on-error-container);
+  }
+}
+
+main {
+  padding: 24px;
+}

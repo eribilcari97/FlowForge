@@ -1,0 +1,29 @@
+spring:
+  application:
+    name: flowforge
+
+  # Local development defaults match docker-compose.yml. Override with environment variables elsewhere.
+  datasource:
+    url: ${FLOWFORGE_DB_URL:jdbc:postgresql://localhost:5432/flowforge}
+    username: ${FLOWFORGE_DB_USERNAME:flowforge}
+    password: ${FLOWFORGE_DB_PASSWORD:flowforge}
+
+  jpa:
+    # Flyway owns the schema. Hibernate only checks that entities match it.
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+
+  flyway:
+    locations: classpath:db/migration
+
+  jackson:
+    # Unknown JSON fields are rejected (docs/api.md §2), e.g. typos in step configs.
+    deserialization:
+      fail-on-unknown-properties: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
