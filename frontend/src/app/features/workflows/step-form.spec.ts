@@ -32,6 +32,7 @@ const WORKFLOW: Workflow = {
       timeoutSeconds: 30,
       maxAttempts: 3,
       retryDelaySeconds: 10,
+      dependsOn: [],
     },
   ],
 };

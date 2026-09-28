@@ -29,6 +29,12 @@ export interface Step {
   timeoutSeconds: number;
   maxAttempts: number;
   retryDelaySeconds: number;
+  dependsOn: number[];
+}
+
+export interface StepDependencies {
+  stepId: number;
+  dependsOn: number[];
 }
 
 export interface WorkflowSummary {
@@ -90,6 +96,25 @@ export class WorkflowService {
 
   delete(id: number): Observable<void> {
     return this.http.delete<void>(`/api/workflows/${id}`);
+  }
+
+  activate(id: number): Observable<Workflow> {
+    return this.http.post<Workflow>(`/api/workflows/${id}/activate`, null);
+  }
+
+  deactivate(id: number): Observable<Workflow> {
+    return this.http.post<Workflow>(`/api/workflows/${id}/deactivate`, null);
+  }
+
+  setDependencies(
+    workflowId: number,
+    stepId: number,
+    dependsOn: number[],
+  ): Observable<StepDependencies> {
+    return this.http.put<StepDependencies>(
+      `/api/workflows/${workflowId}/steps/${stepId}/dependencies`,
+      { dependsOn },
+    );
   }
 
   addStep(workflowId: number, request: StepCreateRequest): Observable<Step> {

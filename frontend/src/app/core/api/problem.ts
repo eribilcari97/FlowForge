@@ -5,6 +5,8 @@ export interface Problem {
   code?: string;
   detail?: string;
   errors?: { field: string; message: string }[];
+  problems?: { stepKey: string | null; message: string }[];
+  cycle?: string[];
 }
 
 export function problemOf(error: unknown): Problem | null {
