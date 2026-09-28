@@ -7,6 +7,7 @@ import org.hibernate.exception.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -30,7 +31,10 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     private static final Map<String, ConstraintConflict> CONSTRAINT_CONFLICTS = Map.of(
             "uq_user_email", new ConstraintConflict(ErrorCode.EMAIL_TAKEN, "Email is already registered"),
-            "uq_project_owner_name", new ConstraintConflict(ErrorCode.DUPLICATE_NAME, "A project with this name already exists"));
+            "uq_project_owner_name", new ConstraintConflict(ErrorCode.DUPLICATE_NAME, "A project with this name already exists"),
+            "uq_workflow_project_name", new ConstraintConflict(ErrorCode.DUPLICATE_NAME, "A workflow with this name already exists"),
+            "uq_step_key", new ConstraintConflict(ErrorCode.DUPLICATE_NAME, "A step with this key already exists"),
+            "fk_workflow_project", new ConstraintConflict(ErrorCode.PROJECT_NOT_EMPTY, "The project still contains workflows"));
 
     private record ConstraintConflict(ErrorCode code, String detail) {
     }
@@ -69,6 +73,18 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .header(HttpHeaders.WWW_AUTHENTICATE, "Bearer")
                 .body(problem(HttpStatus.UNAUTHORIZED, ErrorCode.UNAUTHENTICATED, "Authentication required"));
+    }
+
+    @ExceptionHandler(InvalidFieldsException.class)
+    ProblemDetail handleInvalidFields(InvalidFieldsException ex) {
+        ProblemDetail problem = problem(HttpStatus.BAD_REQUEST, ErrorCode.VALIDATION_ERROR, ex.getMessage());
+        problem.setProperty("errors", ex.getErrors());
+        return problem;
+    }
+
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    ProblemDetail handleOptimisticLock(OptimisticLockingFailureException ex) {
+        return problem(HttpStatus.CONFLICT, ErrorCode.VERSION_CONFLICT, "The resource was changed by someone else");
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)

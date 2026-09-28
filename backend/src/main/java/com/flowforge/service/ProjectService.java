@@ -12,19 +12,22 @@ import com.flowforge.exception.ConflictException;
 import com.flowforge.exception.ErrorCode;
 import com.flowforge.exception.NotFoundException;
 import com.flowforge.repository.ProjectRepository;
+import com.flowforge.repository.WorkflowRepository;
 
 @Service
 public class ProjectService {
 
     private final ProjectRepository projects;
+    private final WorkflowRepository workflows;
 
-    public ProjectService(ProjectRepository projects) {
+    public ProjectService(ProjectRepository projects, WorkflowRepository workflows) {
         this.projects = projects;
+        this.workflows = workflows;
     }
 
     @Transactional(readOnly = true)
     public List<ProjectResponse> list(Long ownerId) {
-        return projects.findAllOwnedBy(ownerId).stream().map(ProjectService::toResponse).toList();
+        return projects.findAllOwnedBy(ownerId).stream().map(this::toResponse).toList();
     }
 
     @Transactional(readOnly = true)
@@ -50,6 +53,9 @@ public class ProjectService {
     @Transactional
     public void delete(Long projectId, Long ownerId) {
         Project project = findOwned(projectId, ownerId);
+        if (workflows.countByProjectId(projectId) > 0) {
+            throw new ConflictException(ErrorCode.PROJECT_NOT_EMPTY, "Delete the project's workflows first");
+        }
         projects.delete(project);
     }
 
@@ -65,8 +71,8 @@ public class ProjectService {
                 });
     }
 
-    private static ProjectResponse toResponse(Project project) {
-        long workflowCount = 0;
+    private ProjectResponse toResponse(Project project) {
+        long workflowCount = workflows.countByProjectId(project.getId());
         return new ProjectResponse(
                 project.getId(), project.getName(), project.getDescription(), workflowCount, project.getCreatedAt());
     }

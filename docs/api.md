@@ -95,6 +95,7 @@ Spring's built-in `ProblemDetail` (RFC 9457), plus a stable `code` the frontend 
 | 409 | `STEP_HAS_DEPENDENTS`, `PROJECT_NOT_EMPTY` | Delete blocked |
 | 422 | `DEPENDENCY_CYCLE` | Has `cycle: ["a","b","a"]` |
 | 422 | `WORKFLOW_INVALID` | Activation failed. Has `problems[]`. |
+| 422 | `STEP_LIMIT_REACHED` | Adding a step to a workflow that already has 30 steps |
 | 500 | `INTERNAL_ERROR` | Details only in the logs |
 
 `type` is omitted, which RFC 9457 defines as `about:blank`. Framework errors without a code in the table (for example `405`) use the HTTP status name as `code` (`METHOD_NOT_ALLOWED`).
@@ -160,6 +161,8 @@ Name 1–100 chars, unique per user. **201** + `Location`:
 ### `POST /api/projects/{projectId}/workflows`
 
 `{ "name": "Customer onboarding", "description": "…" }` → **201** workflow in `DRAFT` with no steps.
+
+`GET /api/projects/{projectId}/workflows` → **200** array of workflow summaries (`id`, `projectId`, `name`, `description`, `status`, `createdAt`, `updatedAt`, without steps), sorted by name · **404**
 
 ### `GET /api/workflows/{workflowId}`
 
@@ -254,7 +257,7 @@ Config per job type:
 | `HTTP` | `method` (GET/POST/PUT/PATCH/DELETE, required), `url` (absolute http/https, required), `headers` (map), `body` (any JSON; placeholders allowed inside strings), `expectedStatus` (default: any 2xx) |
 | `DELAY` | `duration`: ISO-8601, `PT1S` … `P7D` |
 
-**201** step · **400** · **404** · **409** `DUPLICATE_NAME` (key) · **409** `INVALID_STATE` (archived) · **422** if the workflow already has 30 steps
+**201** step · **400** · **404** · **409** `DUPLICATE_NAME` (key) · **409** `INVALID_STATE` (archived) · **422** `STEP_LIMIT_REACHED` if the workflow already has 30 steps
 
 - `PUT /api/workflows/{workflowId}/steps/{stepId}`: same body without `key` and `jobType`. **200** · **400** · **404**
 - `DELETE /api/workflows/{workflowId}/steps/{stepId}` → **204** · **404** · **409** `STEP_HAS_DEPENDENTS`
@@ -421,9 +424,3 @@ Jobs that haven't started become `CANCELLED` immediately. A job currently runnin
 
 ---
 
-## 9. Open decisions
-
-| Decision | Leaning |
-|---|---|
-| Should `PUT` for steps also use optimistic locking? | No in the MVP. Step edits lock the workflow row on the server (for cycle safety), and last-write-wins between browser tabs is acceptable for now. |
-| A "retry this failed job" endpoint | Later (FRS FR-57). The MVP answer is "run again". |

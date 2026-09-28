@@ -334,8 +334,8 @@ Every lookup includes the owner, so a missing row and a row owned by someone els
 
 ```java
 @Query("""
-       select w from Workflow w
-       where w.id = :id and w.project.ownerId = :ownerId
+       select w from Workflow w, Project p
+       where w.id = :id and p.id = w.projectId and p.ownerId = :ownerId
        """)
 Optional<Workflow> findOwned(Long id, Long ownerId);
 ```

@@ -15,6 +15,7 @@ import org.springframework.test.web.servlet.assertj.MvcTestResult;
 
 import com.flowforge.IntegrationTest;
 import com.flowforge.TestAccounts;
+import com.flowforge.TestApi;
 
 @IntegrationTest
 class ProjectApiTest {
@@ -117,6 +118,21 @@ class ProjectApiTest {
 
         assertThat(get(userA, id)).hasStatusOk()
                 .bodyJson().extractingPath("$.name").isEqualTo("Private");
+    }
+
+    @Test
+    void aProjectWithWorkflowsCannotBeDeleted() {
+        TestApi api = new TestApi(mvc);
+        long id = idOf(create(userA, "Busy", null));
+        long workflowId = api.createWorkflow(userA, id, "Reports");
+
+        assertThat(get(userA, id)).bodyJson().extractingPath("$.workflowCount").isEqualTo(1);
+        assertThat(delete(userA, id))
+                .hasStatus(HttpStatus.CONFLICT)
+                .bodyJson().extractingPath("$.code").isEqualTo("PROJECT_NOT_EMPTY");
+
+        assertThat(api.delete(userA, "/api/workflows/" + workflowId)).hasStatus(HttpStatus.NO_CONTENT);
+        assertThat(delete(userA, id)).hasStatus(HttpStatus.NO_CONTENT);
     }
 
     @Test
