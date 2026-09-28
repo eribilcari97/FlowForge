@@ -63,6 +63,10 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/executions/execution-detail').then((m) => m.ExecutionDetail),
       },
+      {
+        path: 'jobs/:id',
+        loadComponent: () => import('./features/executions/job-detail').then((m) => m.JobDetail),
+      },
     ],
   },
   { path: '**', redirectTo: '' },

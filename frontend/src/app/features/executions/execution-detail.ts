@@ -84,7 +84,9 @@ import { RunDialog, RunDialogData } from './run-dialog';
           @for (job of execution.jobs; track job.id) {
             <tr>
               <td>
-                <code>{{ job.stepKey }}</code>
+                <a class="job-link" [routerLink]="['/jobs', job.id]"
+                  ><code>{{ job.stepKey }}</code></a
+                >
               </td>
               <td>{{ job.jobType }}</td>
               <td><app-status-badge [status]="job.status" /></td>

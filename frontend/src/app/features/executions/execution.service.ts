@@ -44,7 +44,40 @@ export interface Page<T> {
   total: number;
 }
 
+export interface Attempt {
+  number: number;
+  status: 'RUNNING' | 'SUCCEEDED' | 'FAILED' | 'ABANDONED';
+  workerId: string;
+  startedAt: string;
+  finishedAt: string | null;
+  errorType: string | null;
+  errorMessage: string | null;
+  retryable: boolean | null;
+}
+
+export interface JobDetail {
+  id: number;
+  executionId: number;
+  stepKey: string;
+  stepName: string;
+  jobType: 'HTTP' | 'DELAY';
+  status: JobStatus;
+  config: Record<string, unknown>;
+  timeoutSeconds: number;
+  maxAttempts: number;
+  attemptCount: number;
+  dependsOn: string[];
+  availableAt: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+  output: unknown;
+  lastError: string | null;
+  attempts: Attempt[];
+}
+
 export const POLL_INTERVAL_MS = 2000;
+
+const UNFINISHED_JOB_STATUSES: JobStatus[] = ['PENDING', 'READY', 'RUNNING'];
 
 @Injectable({ providedIn: 'root' })
 export class ExecutionService {
@@ -70,6 +103,17 @@ export class ExecutionService {
     return timer(0, POLL_INTERVAL_MS).pipe(
       switchMap(() => this.get(id)),
       takeWhile((execution) => execution.status === 'RUNNING', true),
+    );
+  }
+
+  getJob(id: number): Observable<JobDetail> {
+    return this.http.get<JobDetail>(`/api/job-executions/${id}`);
+  }
+
+  watchJob(id: number): Observable<JobDetail> {
+    return timer(0, POLL_INTERVAL_MS).pipe(
+      switchMap(() => this.getJob(id)),
+      takeWhile((job) => UNFINISHED_JOB_STATUSES.includes(job.status), true),
     );
   }
 
