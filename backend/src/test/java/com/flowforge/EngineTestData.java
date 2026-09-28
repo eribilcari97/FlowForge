@@ -12,7 +12,7 @@ public final class EngineTestData {
                 UPDATE job_attempt SET status = 'ABANDONED', finished_at = now() WHERE status = 'RUNNING'
                 """).update();
         jdbc.sql("""
-                UPDATE job_execution SET status = 'CANCELLED', finished_at = now(), locked_by = NULL
+                UPDATE job_execution SET status = 'CANCELLED', finished_at = now(), locked_by = NULL, lease_expires_at = NULL
                 WHERE status IN ('PENDING', 'READY', 'RUNNING')
                 """).update();
         jdbc.sql("""

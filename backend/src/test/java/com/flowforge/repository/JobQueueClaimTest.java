@@ -2,6 +2,7 @@ package com.flowforge.repository;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -23,6 +24,7 @@ class JobQueueClaimTest {
 
     private static final int JOBS = 200;
     private static final int WORKERS = 8;
+    private static final Duration LEASE_GRACE = Duration.ofSeconds(60);
 
     @Autowired
     JdbcClient jdbc;
@@ -69,7 +71,7 @@ class JobQueueClaimTest {
                     List<ClaimedJob> mine = new ArrayList<>();
                     List<ClaimedJob> batch;
                     do {
-                        batch = queue.claim(5, workerId);
+                        batch = queue.claim(5, workerId, LEASE_GRACE);
                         mine.addAll(batch);
                     } while (!batch.isEmpty());
                     return mine;
@@ -106,6 +108,6 @@ class JobQueueClaimTest {
         jdbc.sql("UPDATE job_execution SET available_at = now() + interval '1 hour' WHERE workflow_execution_id = ?")
                 .param(executionId).update();
 
-        assertThat(queue.claim(10, "test-worker")).isEmpty();
+        assertThat(queue.claim(10, "test-worker", LEASE_GRACE)).isEmpty();
     }
 }

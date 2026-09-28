@@ -20,12 +20,15 @@ public class JobRunner {
     private final JobQueue queue;
     private final JobHandlers handlers;
     private final ExecutionCoordinator coordinator;
+    private final AttemptTimeout attemptTimeout;
     private final PlaceholderResolver resolver = new PlaceholderResolver();
 
-    public JobRunner(JobQueue queue, JobHandlers handlers, ExecutionCoordinator coordinator) {
+    public JobRunner(JobQueue queue, JobHandlers handlers, ExecutionCoordinator coordinator,
+            AttemptTimeout attemptTimeout) {
         this.queue = queue;
         this.handlers = handlers;
         this.coordinator = coordinator;
+        this.attemptTimeout = attemptTimeout;
     }
 
     public void run(ClaimedJob job) {
@@ -50,7 +53,9 @@ public class JobRunner {
             ExecutionContext context = queue.loadContext(job.executionId());
             JsonNode config = resolver.resolve(job.config(), new PlaceholderResolver.Context(
                     context.input(), job.executionId(), context.runNumber(), context.stepOutputs()));
-            JobResult result = handlers.forType(job.jobType()).execute(config, job.timeoutSeconds());
+            JobContext jobContext = new JobContext(job.id(), job.attemptNumber(), job.timeoutSeconds());
+            JobResult result = attemptTimeout.run(job.timeoutSeconds(),
+                    () -> handlers.forType(job.jobType()).execute(config, jobContext));
             if (result instanceof JobResult.Success success && isTooLarge(success.output())) {
                 return new JobResult.Failure(ErrorType.OUTPUT_TOO_LARGE, "Output is larger than 256 KB");
             }

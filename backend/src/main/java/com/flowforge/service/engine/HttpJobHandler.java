@@ -9,6 +9,7 @@ import java.net.http.HttpTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
+import java.util.Set;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -34,6 +35,8 @@ public class HttpJobHandler implements JobHandler {
     public static final int MAX_OUTPUT_BYTES = 262_144;
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(10);
     private static final List<String> KEPT_HEADERS = List.of(HttpHeaders.CONTENT_TYPE, HttpHeaders.LOCATION);
+    private static final Set<String> SAFE_TO_REPEAT = Set.of("GET", "PUT", "DELETE");
+    private static final String IDEMPOTENCY_KEY = "Idempotency-Key";
 
     private final ObjectMapper objectMapper;
     private final HttpClient httpClient;
@@ -49,7 +52,14 @@ public class HttpJobHandler implements JobHandler {
     }
 
     @Override
-    public JobResult execute(JsonNode configNode, int timeoutSeconds) {
+    public boolean isSafeToRepeat(JsonNode config) {
+        String method = config.path("method").asString("");
+        return SAFE_TO_REPEAT.contains(method);
+    }
+
+    @Override
+    public JobResult execute(JsonNode configNode, JobContext context) {
+        int timeoutSeconds = context.timeoutSeconds();
         HttpStepConfig config;
         URI uri;
         try {
@@ -72,9 +82,11 @@ public class HttpJobHandler implements JobHandler {
             if (config.headers() != null) {
                 config.headers().forEach(request::header);
             }
+            if (!hasHeader(config, IDEMPOTENCY_KEY)) {
+                request.header(IDEMPOTENCY_KEY, String.valueOf(context.jobId()));
+            }
             if (config.body() != null && !config.body().isNull()) {
-                if (config.headers() == null || config.headers().keySet().stream()
-                        .noneMatch(HttpHeaders.CONTENT_TYPE::equalsIgnoreCase)) {
+                if (!hasHeader(config, HttpHeaders.CONTENT_TYPE)) {
                     request.contentType(MediaType.APPLICATION_JSON);
                 }
                 request.body(objectMapper.writeValueAsString(config.body()));
@@ -128,6 +140,10 @@ public class HttpJobHandler implements JobHandler {
             }
         }
         return JsonNodeFactory.instance.stringNode(text);
+    }
+
+    private static boolean hasHeader(HttpStepConfig config, String name) {
+        return config.headers() != null && config.headers().keySet().stream().anyMatch(name::equalsIgnoreCase);
     }
 
     private static boolean isExpected(int status, List<Integer> expectedStatus) {

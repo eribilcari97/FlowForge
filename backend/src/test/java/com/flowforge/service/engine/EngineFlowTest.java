@@ -155,7 +155,7 @@ class EngineFlowTest {
 
     @Test
     void aFailingStepSkipsItsDownstreamStepsWhileAnIndependentBranchCompletes() {
-        server.stubFor(get(urlPathEqualTo("/broken")).willReturn(aResponse().withStatus(500)));
+        server.stubFor(get(urlPathEqualTo("/broken")).willReturn(aResponse().withStatus(400)));
         server.stubFor(get(urlPathEqualTo("/fine")).willReturn(aResponse().withStatus(200)));
         long workflow = api.createWorkflow(user, projectId, "Failure");
         long broken = api.addStep(user, workflow, "broken", "HTTP", getConfig("/broken"));
@@ -172,7 +172,7 @@ class EngineFlowTest {
         assertThat(jobStatus(jdbc, execution, "after_broken")).isEqualTo("SKIPPED");
         assertThat(jobStatus(jdbc, execution, "independent")).isEqualTo("SUCCEEDED");
         assertThat(api.get(user, "/api/executions/" + execution))
-                .bodyJson().extractingPath("$.errorSummary").isEqualTo("broken failed: HTTP 500 Internal Server Error");
+                .bodyJson().extractingPath("$.errorSummary").isEqualTo("broken failed: HTTP 400 Bad Request");
     }
 
     @Test

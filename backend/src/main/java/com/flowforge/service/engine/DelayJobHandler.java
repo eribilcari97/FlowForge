@@ -22,7 +22,12 @@ public class DelayJobHandler implements JobHandler {
     }
 
     @Override
-    public JobResult execute(JsonNode config, int timeoutSeconds) {
+    public boolean isSafeToRepeat(JsonNode config) {
+        return true;
+    }
+
+    @Override
+    public JobResult execute(JsonNode config, JobContext context) {
         return new JobResult.Success(JsonNodeFactory.instance.objectNode()
                 .put("waited", config.get("duration").stringValue()));
     }

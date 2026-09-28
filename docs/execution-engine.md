@@ -501,7 +501,9 @@ flowforge:
     poll-interval: 1s
     lease-grace: 60s
   recovery:
+    enabled: true
     interval: 30s
+    batch-size: 50
   scheduler:
     interval: 15s
   limits:

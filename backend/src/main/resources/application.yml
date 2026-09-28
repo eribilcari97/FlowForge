@@ -40,3 +40,8 @@ flowforge:
     enabled: true
     threads: 4
     poll-interval: 1s
+    lease-grace: 60s
+  recovery:
+    enabled: true
+    interval: 30s
+    batch-size: 50

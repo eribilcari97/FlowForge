@@ -94,7 +94,7 @@ public class JobWorker implements SmartLifecycle {
             try {
                 int free = freeThreads.availablePermits();
                 if (free > 0) {
-                    List<ClaimedJob> jobs = queue.claim(free, workerId);
+                    List<ClaimedJob> jobs = queue.claim(free, workerId, properties.leaseGrace());
                     jobs.forEach(this::submit);
                 }
                 waitForWork(properties.pollInterval().toMillis());

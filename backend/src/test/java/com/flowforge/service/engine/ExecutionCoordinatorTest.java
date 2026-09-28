@@ -30,6 +30,8 @@ import com.flowforge.repository.JobQueue.ClaimedJob;
 @IntegrationTest
 class ExecutionCoordinatorTest {
 
+    private static final Duration LEASE_GRACE = Duration.ofSeconds(60);
+
     private static final String HTTP_CONFIG = """
             { "method": "GET", "url": "https://example.com" }
             """;
@@ -71,7 +73,7 @@ class ExecutionCoordinatorTest {
         try {
             for (int round = 0; round < 25; round++) {
                 long execution = api.startExecution(user, workflow, "{}");
-                List<ClaimedJob> claimed = queue.claim(2, "test-worker");
+                List<ClaimedJob> claimed = queue.claim(2, "test-worker", LEASE_GRACE);
                 assertThat(claimed).extracting(ClaimedJob::stepKey).containsExactlyInAnyOrder("b", "c");
 
                 CyclicBarrier together = new CyclicBarrier(2);
@@ -107,9 +109,9 @@ class ExecutionCoordinatorTest {
         api.setDependencies(user, workflow, c, b);
         api.activate(user, workflow);
         long execution = api.startExecution(user, workflow, "{}");
-        List<ClaimedJob> claimed = queue.claim(10, "test-worker");
+        List<ClaimedJob> claimed = queue.claim(10, "test-worker", LEASE_GRACE);
 
-        coordinator.record(job(claimed, "a"), new JobResult.Failure(ErrorType.HTTP_5XX, "HTTP 503 Service Unavailable"));
+        coordinator.record(job(claimed, "a"), new JobResult.Failure(ErrorType.HTTP_4XX, "HTTP 400 Bad Request"));
 
         assertThat(jobStatus(jdbc, execution, "a")).isEqualTo("FAILED");
         assertThat(jobStatus(jdbc, execution, "b")).isEqualTo("SKIPPED");
@@ -122,11 +124,11 @@ class ExecutionCoordinatorTest {
         assertThat(jobStatus(jdbc, execution, "x")).isEqualTo("SUCCEEDED");
         assertThat(executionStatus(jdbc, execution)).isEqualTo("FAILED");
         assertThat(jdbc.sql("SELECT error_summary FROM workflow_execution WHERE id = ?").param(execution)
-                .query(String.class).single()).isEqualTo("a failed: HTTP 503 Service Unavailable");
+                .query(String.class).single()).isEqualTo("a failed: HTTP 400 Bad Request");
         assertThat(jdbc.sql("""
                 SELECT a.status || ' ' || a.error_type FROM job_attempt a JOIN job_execution j ON j.id = a.job_execution_id
                 WHERE j.workflow_execution_id = ? AND j.step_key = 'a'
-                """).param(execution).query(String.class).single()).isEqualTo("FAILED HTTP_5XX");
+                """).param(execution).query(String.class).single()).isEqualTo("FAILED HTTP_4XX");
     }
 
     @Test
@@ -135,7 +137,7 @@ class ExecutionCoordinatorTest {
         api.addStep(user, workflow, "only", "HTTP", HTTP_CONFIG);
         api.activate(user, workflow);
         long execution = api.startExecution(user, workflow, "{}");
-        ClaimedJob only = queue.claim(1, "test-worker").getFirst();
+        ClaimedJob only = queue.claim(1, "test-worker", LEASE_GRACE).getFirst();
 
         coordinator.record(only, success());
 
@@ -157,13 +159,13 @@ class ExecutionCoordinatorTest {
         api.activate(user, workflow);
         long execution = api.startExecution(user, workflow, "{}");
 
-        coordinator.record(queue.claim(1, "test-worker").getFirst(), success());
+        coordinator.record(queue.claim(1, "test-worker", LEASE_GRACE).getFirst(), success());
 
         assertThat(jobStatus(jdbc, execution, "wait")).isEqualTo("READY");
         Instant availableAt = jdbc.sql("SELECT available_at FROM job_execution WHERE workflow_execution_id = ? AND step_key = 'wait'")
                 .param(execution).query(Instant.class).single();
         assertThat(Duration.between(Instant.now(), availableAt)).isBetween(Duration.ofMinutes(9), Duration.ofMinutes(10));
-        assertThat(queue.claim(1, "test-worker")).isEmpty();
+        assertThat(queue.claim(1, "test-worker", LEASE_GRACE)).isEmpty();
     }
 
     @Test
@@ -174,7 +176,7 @@ class ExecutionCoordinatorTest {
         api.setDependencies(user, workflow, b, a);
         api.activate(user, workflow);
         long execution = api.startExecution(user, workflow, "{}");
-        ClaimedJob running = queue.claim(1, "test-worker").getFirst();
+        ClaimedJob running = queue.claim(1, "test-worker", LEASE_GRACE).getFirst();
 
         api.post(user, "/api/executions/" + execution + "/cancel", "");
         assertThat(jobStatus(jdbc, execution, "a")).isEqualTo("RUNNING");
@@ -195,10 +197,10 @@ class ExecutionCoordinatorTest {
         api.addStep(user, workflow, "only", "HTTP", HTTP_CONFIG);
         api.activate(user, workflow);
         long execution = api.startExecution(user, workflow, "{}");
-        ClaimedJob only = queue.claim(1, "test-worker").getFirst();
+        ClaimedJob only = queue.claim(1, "test-worker", LEASE_GRACE).getFirst();
 
         coordinator.record(only, success());
-        coordinator.record(only, new JobResult.Failure(ErrorType.HTTP_5XX, "late"));
+        coordinator.record(only, new JobResult.Failure(ErrorType.HTTP_4XX, "late"));
 
         assertThat(jobStatus(jdbc, execution, "only")).isEqualTo("SUCCEEDED");
         assertThat(executionStatus(jdbc, execution)).isEqualTo("SUCCEEDED");

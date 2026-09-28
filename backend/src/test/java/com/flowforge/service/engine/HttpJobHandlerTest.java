@@ -122,7 +122,7 @@ class HttpJobHandlerTest {
 
         JobResult result = handler.execute(mapper.readTree("""
                 { "method": "GET", "url": "http://localhost:%d/nothing" }
-                """.formatted(closedPort)), 5);
+                """.formatted(closedPort)), new JobContext(301, 1, 5));
 
         assertThat(result).isInstanceOfSatisfying(JobResult.Failure.class,
                 failure -> assertThat(failure.type()).isEqualTo(ErrorType.CONNECTION_ERROR));
@@ -148,7 +148,39 @@ class HttpJobHandlerTest {
                 failure -> assertThat(failure.type()).isEqualTo(ErrorType.INVALID_CONFIG));
     }
 
+    @Test
+    void everyRequestCarriesTheJobIdAsIdempotencyKey() {
+        server.stubFor(post("/payments").willReturn(aResponse().withStatus(201)));
+
+        execute("""
+                { "method": "POST", "url": "%s/payments" }
+                """, 5);
+
+        server.verify(postRequestedFor(urlEqualTo("/payments")).withHeader("Idempotency-Key", equalTo("301")));
+    }
+
+    @Test
+    void anIdempotencyKeyFromTheStepConfigIsKept() {
+        server.stubFor(post("/payments").willReturn(aResponse().withStatus(201)));
+
+        execute("""
+                { "method": "POST", "url": "%s/payments", "headers": { "idempotency-key": "order-7" } }
+                """, 5);
+
+        server.verify(postRequestedFor(urlEqualTo("/payments")).withHeader("Idempotency-Key", equalTo("order-7")));
+    }
+
+    @Test
+    void onlyMethodsThatCanBeRepeatedSafelyAreSafeToRepeat() {
+        assertThat(handler.isSafeToRepeat(mapper.readTree("{ \"method\": \"GET\" }"))).isTrue();
+        assertThat(handler.isSafeToRepeat(mapper.readTree("{ \"method\": \"PUT\" }"))).isTrue();
+        assertThat(handler.isSafeToRepeat(mapper.readTree("{ \"method\": \"DELETE\" }"))).isTrue();
+        assertThat(handler.isSafeToRepeat(mapper.readTree("{ \"method\": \"POST\" }"))).isFalse();
+        assertThat(handler.isSafeToRepeat(mapper.readTree("{ \"method\": \"PATCH\" }"))).isFalse();
+    }
+
     private JobResult execute(String configTemplate, int timeoutSeconds) {
-        return handler.execute(mapper.readTree(configTemplate.formatted(server.baseUrl())), timeoutSeconds);
+        return handler.execute(mapper.readTree(configTemplate.formatted(server.baseUrl())),
+                new JobContext(301, 1, timeoutSeconds));
     }
 }

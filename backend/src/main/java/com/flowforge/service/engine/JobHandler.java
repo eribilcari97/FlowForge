@@ -14,5 +14,7 @@ public interface JobHandler {
         return Duration.ZERO;
     }
 
-    JobResult execute(JsonNode config, int timeoutSeconds);
+    boolean isSafeToRepeat(JsonNode config);
+
+    JobResult execute(JsonNode config, JobContext context);
 }

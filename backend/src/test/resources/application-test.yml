@@ -4,3 +4,5 @@ flowforge:
       secret: integration-test-only-jwt-secret-not-for-deployment
   worker:
     enabled: false
+  recovery:
+    enabled: false

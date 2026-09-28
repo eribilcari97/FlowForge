@@ -25,7 +25,7 @@ import com.flowforge.entity.JobType;
 public class JobQueue {
 
     public record ClaimedJob(long id, long executionId, String stepKey, JobType jobType, JsonNode config,
-            int timeoutSeconds, int attemptNumber) {
+            int timeoutSeconds, int attemptNumber, int maxAttempts, int retryDelaySeconds) {
     }
 
     public record DependentJob(long id, String stepKey, List<String> dependsOn, JobType jobType, JsonNode config) {
@@ -37,8 +37,13 @@ public class JobQueue {
     public record JobCounts(int active, int failed) {
     }
 
-    public record FailedJob(String stepKey, String lastError) {
+    public record FailedJob(String stepKey, String lastError, int attemptCount) {
     }
+
+    private static final String CLAIMED_JOB_COLUMNS = """
+            id, workflow_execution_id, step_key, job_type, config::text AS config,
+            timeout_seconds, attempt_count, max_attempts, retry_delay_seconds
+            """;
 
     private final JdbcClient jdbc;
     private final ObjectMapper objectMapper;
@@ -49,7 +54,7 @@ public class JobQueue {
     }
 
     @Transactional
-    public List<ClaimedJob> claim(int limit, String workerId) {
+    public List<ClaimedJob> claim(int limit, String workerId, Duration leaseGrace) {
         List<ClaimedJob> claimed = jdbc.sql("""
                 WITH picked AS (
                     SELECT id
@@ -60,25 +65,20 @@ public class JobQueue {
                     FOR UPDATE SKIP LOCKED
                 )
                 UPDATE job_execution j
-                SET status        = 'RUNNING',
-                    locked_by     = :workerId,
-                    attempt_count = j.attempt_count + 1,
-                    started_at    = COALESCE(j.started_at, now())
+                SET status           = 'RUNNING',
+                    locked_by        = :workerId,
+                    attempt_count    = j.attempt_count + 1,
+                    lease_expires_at = now() + make_interval(secs => j.timeout_seconds + :leaseGraceSeconds),
+                    started_at       = COALESCE(j.started_at, now())
                 FROM picked
                 WHERE j.id = picked.id
                 RETURNING j.id, j.workflow_execution_id, j.step_key, j.job_type, j.config::text AS config,
-                          j.timeout_seconds, j.attempt_count
+                          j.timeout_seconds, j.attempt_count, j.max_attempts, j.retry_delay_seconds
                 """)
                 .param("limit", limit)
                 .param("workerId", workerId)
-                .query((row, number) -> new ClaimedJob(
-                        row.getLong("id"),
-                        row.getLong("workflow_execution_id"),
-                        row.getString("step_key"),
-                        JobType.valueOf(row.getString("job_type")),
-                        objectMapper.readTree(row.getString("config")),
-                        row.getInt("timeout_seconds"),
-                        row.getInt("attempt_count")))
+                .param("leaseGraceSeconds", leaseGrace.toSeconds())
+                .query((row, number) -> claimedJob(row))
                 .list();
 
         for (ClaimedJob job : claimed) {
@@ -125,7 +125,7 @@ public class JobQueue {
         int updated = jdbc.sql("""
                 UPDATE job_execution
                 SET status = :status, output = CAST(:output AS jsonb), last_error = :lastError,
-                    finished_at = now(), locked_by = NULL
+                    finished_at = now(), locked_by = NULL, lease_expires_at = NULL
                 WHERE id = :id AND status = 'RUNNING' AND attempt_count = :attempt
                 """)
                 .param("status", status.name())
@@ -137,19 +137,60 @@ public class JobQueue {
         return updated == 1;
     }
 
+    public boolean retryLater(long jobId, int attemptNumber, Duration delay, String lastError) {
+        int updated = jdbc.sql("""
+                UPDATE job_execution
+                SET status = 'READY', available_at = now() + make_interval(secs => :seconds),
+                    last_error = :lastError, locked_by = NULL, lease_expires_at = NULL
+                WHERE id = :id AND status = 'RUNNING' AND attempt_count = :attempt
+                """)
+                .param("seconds", delay.toMillis() / 1000.0)
+                .param("lastError", lastError)
+                .param("id", jobId)
+                .param("attempt", attemptNumber)
+                .update();
+        return updated == 1;
+    }
+
     public void finishAttempt(long jobId, int attemptNumber, AttemptStatus status, String errorType,
-            String errorMessage) {
+            String errorMessage, Boolean retryable) {
         jdbc.sql("""
                 UPDATE job_attempt
-                SET status = :status, finished_at = now(), error_type = :errorType, error_message = :errorMessage
+                SET status = :status, finished_at = now(), error_type = :errorType, error_message = :errorMessage,
+                    retryable = :retryable
                 WHERE job_execution_id = :jobId AND attempt_number = :attempt AND status = 'RUNNING'
                 """)
                 .param("status", status.name())
                 .param("errorType", errorType)
                 .param("errorMessage", errorMessage)
+                .param("retryable", retryable)
                 .param("jobId", jobId)
                 .param("attempt", attemptNumber)
                 .update();
+    }
+
+    public void noteLateResult(long jobId, int attemptNumber, String note) {
+        jdbc.sql("""
+                UPDATE job_attempt
+                SET error_message = concat_ws(' ', error_message, :note)
+                WHERE job_execution_id = :jobId AND attempt_number = :attempt AND status <> 'RUNNING'
+                """)
+                .param("note", note)
+                .param("jobId", jobId)
+                .param("attempt", attemptNumber)
+                .update();
+    }
+
+    public List<ClaimedJob> findExpiredLeases(int limit) {
+        return jdbc.sql("SELECT " + CLAIMED_JOB_COLUMNS + """
+                FROM job_execution
+                WHERE status = 'RUNNING' AND lease_expires_at < now()
+                ORDER BY lease_expires_at
+                LIMIT :limit
+                """)
+                .param("limit", limit)
+                .query((row, number) -> claimedJob(row))
+                .list();
     }
 
     public List<DependentJob> pendingDependentsOf(long executionId, String stepKey) {
@@ -222,13 +263,14 @@ public class JobQueue {
 
     public Optional<FailedJob> firstFailedJob(long executionId) {
         return jdbc.sql("""
-                SELECT step_key, last_error FROM job_execution
+                SELECT step_key, last_error, attempt_count FROM job_execution
                 WHERE workflow_execution_id = ? AND status = 'FAILED'
                 ORDER BY finished_at, id
                 LIMIT 1
                 """)
                 .param(executionId)
-                .query((row, number) -> new FailedJob(row.getString("step_key"), row.getString("last_error")))
+                .query((row, number) -> new FailedJob(row.getString("step_key"), row.getString("last_error"),
+                        row.getInt("attempt_count")))
                 .optional();
     }
 
@@ -242,6 +284,19 @@ public class JobQueue {
                 .param("errorSummary", errorSummary)
                 .param("id", executionId)
                 .update();
+    }
+
+    private ClaimedJob claimedJob(ResultSet row) throws SQLException {
+        return new ClaimedJob(
+                row.getLong("id"),
+                row.getLong("workflow_execution_id"),
+                row.getString("step_key"),
+                JobType.valueOf(row.getString("job_type")),
+                objectMapper.readTree(row.getString("config")),
+                row.getInt("timeout_seconds"),
+                row.getInt("attempt_count"),
+                row.getInt("max_attempts"),
+                row.getInt("retry_delay_seconds"));
     }
 
     private JsonNode readJson(String json) {
