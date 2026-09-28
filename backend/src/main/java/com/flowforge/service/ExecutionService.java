@@ -182,12 +182,27 @@ public class ExecutionService {
         Page<WorkflowExecution> result = status == null
                 ? executions.findPageOwned(ownerId, pageRequest)
                 : executions.findPageOwnedWithStatus(ownerId, status, pageRequest);
-        Set<Long> workflowIds = result.getContent().stream()
+        return toPage(result, workflowNames(result), pageRequest);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<ExecutionSummaryResponse> listOwnedFailedSince(Long ownerId, Instant since, int size) {
+        PageRequest pageRequest = pageRequest(0, size);
+        Page<WorkflowExecution> result = executions.findPageOwnedFailedSince(ownerId, since, pageRequest);
+        return toPage(result, workflowNames(result), pageRequest);
+    }
+
+    public Instant databaseNow() {
+        return executions.databaseNow();
+    }
+
+    private Map<Long, String> workflowNames(Page<WorkflowExecution> page) {
+        Set<Long> workflowIds = page.getContent().stream()
                 .map(WorkflowExecution::getWorkflowId)
                 .collect(Collectors.toSet());
         Map<Long, String> names = new HashMap<>();
         workflows.findAllByIds(workflowIds).forEach(workflow -> names.put(workflow.getId(), workflow.getName()));
-        return toPage(result, names, pageRequest);
+        return names;
     }
 
     private WorkflowExecution findOwned(Long executionId, Long ownerId) {

@@ -208,4 +208,4 @@ Instances can optionally be split by role: API-only instances set `flowforge.wor
 | JWT implementation | Spring OAuth2 Resource Server (`NimbusJwtDecoder`) vs custom filter + `jjwt` | Resource Server (less custom security code) |
 | JWT storage in the browser | `localStorage` vs in-memory + refresh cookie | `localStorage` initially. The in-memory variant arrives with refresh tokens. |
 | Worker threads | Fixed pool vs virtual threads | Fixed pool of 4 |
-| Workflow graph in the UI | Dependency list vs rendered graph | List first, rendered graph later |
+| Workflow graph in the UI | Dependency list vs rendered graph | Decided: both. The step list stays, and a left-to-right graph (`@dagrejs/dagre` layout, plain SVG) is shown on the workflow page and on execution pages, colored by job status. |

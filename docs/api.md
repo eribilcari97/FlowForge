@@ -43,6 +43,7 @@ Only the endpoints the application actually needs. **A** = requires a JWT. **O**
 | POST | `/api/workflows/{workflowId}/schedules` | Add a schedule | A+O |
 | PUT | `/api/workflows/{workflowId}/schedules/{scheduleId}` | Update, pause or resume | A+O |
 | DELETE | `/api/workflows/{workflowId}/schedules/{scheduleId}` | Remove a schedule | A+O |
+| GET | `/api/dashboard` | Running executions, failures of the last 24 h, upcoming scheduled runs | A |
 | GET | `/actuator/health` | Health check | — |
 | GET | `/api/health` | Foundation smoke test: confirms the frontend reaches the backend through `/api` | — |
 
@@ -431,4 +432,33 @@ Jobs that haven't started become `CANCELLED` immediately. A job currently runnin
 - `DELETE /api/workflows/{workflowId}/schedules/{scheduleId}` → **204** · **404**
 
 ---
+
+## 9. Dashboard
+
+### `GET /api/dashboard`
+
+**200**. The start page of the UI, in one request:
+
+```json
+{
+  "running": { "items": [ { "id": 91, "workflowName": "Customer onboarding", "runNumber": 12, "status": "RUNNING", … } ], "page": 0, "size": 10, "total": 1 },
+  "failedLast24Hours": { "items": [ { "id": 90, "status": "FAILED", "errorSummary": "fetch_orders failed after 3 attempts: HTTP 503 …", … } ], "page": 0, "size": 10, "total": 14 },
+  "upcomingRuns": [ { "scheduleId": 3, "workflowId": 6, "workflowName": "Daily sales report", "cronExpression": "0 8 * * *", "timezone": "Europe/Berlin", "nextRunAt": "2026-09-29T06:00:00Z" } ]
+}
+```
+
+- `running`: the newest 10 running executions, and how many there are in total. Items have the same shape as the execution list.
+- `failedLast24Hours`: executions that finished as `FAILED` in the last 24 hours (measured with the database clock), newest first.
+- `upcomingRuns`: the next 10 due times of **enabled** schedules of **`ACTIVE`** workflows, soonest first. Schedules that can't fire are left out.
+
+Only the current user's data is included. **401** without a token.
+
+---
+
+## 10. Open decisions
+
+| Decision | Leaning |
+|---|---|
+| Should `PUT` for steps also use optimistic locking? | No in the MVP. Step edits lock the workflow row on the server (for cycle safety), and last-write-wins between browser tabs is acceptable for now. |
+| A "retry this failed job" endpoint | Later (FRS FR-57). The MVP answer is "run again". |
 

@@ -64,4 +64,17 @@ public interface WorkflowExecutionRepository extends Repository<WorkflowExecutio
                      and e.status = :status
                    """)
     Page<WorkflowExecution> findPageOwnedWithStatus(Long ownerId, ExecutionStatus status, Pageable pageable);
+
+    @Query(value = """
+                   select e from WorkflowExecution e, Workflow w, Project p
+                   where w.id = e.workflowId and p.id = w.projectId and p.ownerId = :ownerId
+                     and e.status = com.flowforge.entity.ExecutionStatus.FAILED and e.finishedAt >= :since
+                   order by e.finishedAt desc, e.id desc
+                   """,
+           countQuery = """
+                   select count(e) from WorkflowExecution e, Workflow w, Project p
+                   where w.id = e.workflowId and p.id = w.projectId and p.ownerId = :ownerId
+                     and e.status = com.flowforge.entity.ExecutionStatus.FAILED and e.finishedAt >= :since
+                   """)
+    Page<WorkflowExecution> findPageOwnedFailedSince(Long ownerId, Instant since, Pageable pageable);
 }
