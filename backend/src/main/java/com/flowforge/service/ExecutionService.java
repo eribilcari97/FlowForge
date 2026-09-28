@@ -1,6 +1,5 @@
 package com.flowforge.service;
 
-import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -16,15 +15,16 @@ import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.node.JsonNodeFactory;
 
+import com.flowforge.dto.AttemptResponse;
 import com.flowforge.dto.ExecutionResponse;
 import com.flowforge.dto.ExecutionSummaryResponse;
+import com.flowforge.dto.JobDetailResponse;
 import com.flowforge.dto.JobSummaryResponse;
 import com.flowforge.dto.PageResponse;
 import com.flowforge.dto.ValidationProblem;
 import com.flowforge.entity.ExecutionStatus;
 import com.flowforge.entity.JobExecution;
 import com.flowforge.entity.JobStatus;
-import com.flowforge.entity.JobType;
 import com.flowforge.entity.TriggerType;
 import com.flowforge.entity.Workflow;
 import com.flowforge.entity.WorkflowDependency;
@@ -36,11 +36,13 @@ import com.flowforge.exception.GlobalExceptionHandler.FieldError;
 import com.flowforge.exception.InvalidFieldsException;
 import com.flowforge.exception.NotFoundException;
 import com.flowforge.exception.WorkflowInvalidException;
+import com.flowforge.repository.JobAttemptRepository;
 import com.flowforge.repository.JobExecutionRepository;
 import com.flowforge.repository.WorkflowDependencyRepository;
 import com.flowforge.repository.WorkflowExecutionRepository;
 import com.flowforge.repository.WorkflowRepository;
 import com.flowforge.repository.WorkflowStepRepository;
+import com.flowforge.service.engine.JobHandlers;
 
 @Service
 public class ExecutionService {
@@ -56,17 +58,22 @@ public class ExecutionService {
     private final WorkflowDependencyRepository dependencies;
     private final WorkflowExecutionRepository executions;
     private final JobExecutionRepository jobs;
+    private final JobAttemptRepository attempts;
     private final WorkflowValidator validator;
+    private final JobHandlers handlers;
 
     public ExecutionService(WorkflowRepository workflows, WorkflowStepRepository steps,
             WorkflowDependencyRepository dependencies, WorkflowExecutionRepository executions,
-            JobExecutionRepository jobs, WorkflowValidator validator) {
+            JobExecutionRepository jobs, JobAttemptRepository attempts, WorkflowValidator validator,
+            JobHandlers handlers) {
         this.workflows = workflows;
         this.steps = steps;
         this.dependencies = dependencies;
         this.executions = executions;
         this.jobs = jobs;
+        this.attempts = attempts;
         this.validator = validator;
+        this.handlers = handlers;
     }
 
     @Transactional
@@ -106,7 +113,7 @@ public class ExecutionService {
             boolean root = dependsOn.isEmpty();
             jobs.save(new JobExecution(execution.getId(), step, dependsOn,
                     root ? JobStatus.READY : JobStatus.PENDING,
-                    root ? now.plus(readyDelay(step)) : null,
+                    root ? now.plus(handlers.forType(step.getJobType()).readyDelay(step.getConfig())) : null,
                     now));
         }
         jobs.flush();
@@ -117,6 +124,15 @@ public class ExecutionService {
     public ExecutionResponse get(Long executionId, Long ownerId) {
         WorkflowExecution execution = findOwned(executionId, ownerId);
         return toResponse(execution, workflowName(execution));
+    }
+
+    @Transactional(readOnly = true)
+    public JobDetailResponse getJob(Long jobId, Long ownerId) {
+        JobExecution job = jobs.findOwned(jobId, ownerId).orElseThrow(() -> new NotFoundException("Job"));
+        List<AttemptResponse> attemptResponses = attempts.findAllByJobIdOrderByAttemptNumber(jobId).stream()
+                .map(AttemptResponse::from)
+                .toList();
+        return JobDetailResponse.from(job, attemptResponses);
     }
 
     @Transactional
@@ -198,13 +214,6 @@ public class ExecutionService {
         }
         result.values().forEach(keys -> keys.sort(null));
         return result;
-    }
-
-    private static Duration readyDelay(WorkflowStep step) {
-        if (step.getJobType() == JobType.DELAY) {
-            return Duration.parse(step.getConfig().get("duration").stringValue());
-        }
-        return Duration.ZERO;
     }
 
     private static void validateRequest(JsonNode input, String idempotencyKey) {

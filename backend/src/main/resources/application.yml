@@ -36,3 +36,7 @@ flowforge:
     jwt:
       secret: ${FLOWFORGE_JWT_SECRET:}
       access-token-ttl: 60m
+  worker:
+    enabled: true
+    threads: 4
+    poll-interval: 1s

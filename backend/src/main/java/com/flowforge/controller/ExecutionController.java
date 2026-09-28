@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.flowforge.dto.ExecutionResponse;
 import com.flowforge.dto.ExecutionSummaryResponse;
+import com.flowforge.dto.JobDetailResponse;
 import com.flowforge.dto.PageResponse;
 import com.flowforge.dto.StartExecutionRequest;
 import com.flowforge.entity.ExecutionStatus;
@@ -57,6 +58,11 @@ public class ExecutionController {
     @GetMapping("/api/executions/{executionId}")
     ExecutionResponse get(@PathVariable Long executionId) {
         return executionService.get(executionId, currentUser.id());
+    }
+
+    @GetMapping("/api/job-executions/{jobId}")
+    JobDetailResponse getJob(@PathVariable Long jobId) {
+        return executionService.getJob(jobId, currentUser.id());
     }
 
     @PostMapping("/api/executions/{executionId}/cancel")

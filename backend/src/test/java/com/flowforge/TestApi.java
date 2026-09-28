@@ -53,6 +53,25 @@ public class TestApi {
                 """.formatted(key, key, key));
     }
 
+    public long addStep(String auth, long workflowId, String key, String jobType, String configJson) {
+        MvcTestResult result = post(auth, "/api/workflows/" + workflowId + "/steps", """
+                { "key": "%s", "name": "%s", "jobType": "%s", "config": %s }
+                """.formatted(key, key, jobType, configJson));
+        assertThat(result).hasStatus(HttpStatus.CREATED);
+        return idOf(result);
+    }
+
+    public void activate(String auth, long workflowId) {
+        assertThat(post(auth, "/api/workflows/" + workflowId + "/activate", "")).hasStatusOk();
+    }
+
+    public long startExecution(String auth, long workflowId, String inputJson) {
+        MvcTestResult result = post(auth, "/api/workflows/" + workflowId + "/executions",
+                "{ \"input\": " + inputJson + " }");
+        assertThat(result).hasStatus(HttpStatus.ACCEPTED);
+        return idOf(result);
+    }
+
     public MvcTestResult setDependencies(String auth, long workflowId, long stepId, long... dependsOn) {
         String ids = Arrays.stream(dependsOn).mapToObj(String::valueOf).collect(Collectors.joining(", "));
         return put(auth, "/api/workflows/" + workflowId + "/steps/" + stepId + "/dependencies",

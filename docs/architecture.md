@@ -62,6 +62,7 @@ com.flowforge
 ├── entity/        JPA entities and their status enums (e.g. Workflow, WorkflowStep, WorkflowStatus)
 ├── repository/    Spring Data JPA repositories (e.g. WorkflowRepository)
 ├── service/       use cases, transactions, ownership checks (e.g. WorkflowService)
+│   └── engine/    worker, job runner, outcome recording, job handlers, placeholder resolver
 ├── controller/    REST controllers: HTTP mapping and DTO validation only (e.g. WorkflowController)
 ├── security/      authentication, JWT, security configuration, current-user resolution
 ├── exception/     error handling (ProblemDetail) and error codes
