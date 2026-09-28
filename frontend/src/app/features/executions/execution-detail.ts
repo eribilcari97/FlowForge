@@ -1,20 +1,30 @@
 import { DatePipe, JsonPipe } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatCardModule } from '@angular/material/card';
 import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { switchMap } from 'rxjs';
+import { interval, map, switchMap } from 'rxjs';
 
 import { problemOf } from '../../core/api/problem';
 import { StatusBadge } from '../../shared/status-badge';
-import { Execution, ExecutionService } from './execution.service';
+import { Execution, ExecutionService, JobSummary } from './execution.service';
+import { retryCountdown } from './job-status';
 import { RunDialog, RunDialogData } from './run-dialog';
 
 @Component({
   selector: 'app-execution-detail',
-  imports: [RouterLink, DatePipe, JsonPipe, MatButtonModule, MatCardModule, StatusBadge],
+  imports: [
+    RouterLink,
+    DatePipe,
+    JsonPipe,
+    MatButtonModule,
+    MatButtonToggleModule,
+    MatCardModule,
+    StatusBadge,
+  ],
   styleUrl: './executions.scss',
   template: `
     @if (notFound()) {
@@ -67,7 +77,19 @@ import { RunDialog, RunDialogData } from './run-dialog';
         </mat-card-actions>
       </mat-card>
 
-      <h2>Jobs</h2>
+      <header class="page-header">
+        <h2>Jobs</h2>
+        <mat-button-toggle-group
+          class="job-filter"
+          [value]="onlyFailed()"
+          (change)="onlyFailed.set($event.value)"
+        >
+          <mat-button-toggle [value]="false">All ({{ execution.jobs.length }})</mat-button-toggle>
+          <mat-button-toggle [value]="true" class="failed-filter"
+            >Failed ({{ failedCount(execution) }})</mat-button-toggle
+          >
+        </mat-button-toggle-group>
+      </header>
       <table class="jobs">
         <thead>
           <tr>
@@ -81,7 +103,7 @@ import { RunDialog, RunDialogData } from './run-dialog';
           </tr>
         </thead>
         <tbody>
-          @for (job of execution.jobs; track job.id) {
+          @for (job of visibleJobs(execution); track job.id) {
             <tr>
               <td>
                 <a class="job-link" [routerLink]="['/jobs', job.id]"
@@ -89,11 +111,20 @@ import { RunDialog, RunDialogData } from './run-dialog';
                 >
               </td>
               <td>{{ job.jobType }}</td>
-              <td><app-status-badge [status]="job.status" /></td>
+              <td>
+                <app-status-badge [status]="job.status" />
+                @if (countdown(job); as countdown) {
+                  <div class="retry-countdown">{{ countdown }}</div>
+                }
+              </td>
               <td>{{ job.attemptCount }}/{{ job.maxAttempts }}</td>
               <td>{{ job.dependsOn.length ? job.dependsOn.join(', ') : '—' }}</td>
               <td>{{ job.availableAt ? (job.availableAt | date: 'medium') : '—' }}</td>
               <td>{{ job.lastError ?? '—' }}</td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="7" class="empty">No failed jobs.</td>
             </tr>
           }
         </tbody>
@@ -114,6 +145,24 @@ export class ExecutionDetail {
   protected readonly notFound = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly busy = signal(false);
+  protected readonly onlyFailed = signal(false);
+  private readonly now = toSignal(interval(1000).pipe(map(() => Date.now())), {
+    initialValue: Date.now(),
+  });
+
+  protected visibleJobs(execution: Execution): JobSummary[] {
+    return this.onlyFailed()
+      ? execution.jobs.filter((job) => job.status === 'FAILED')
+      : execution.jobs;
+  }
+
+  protected failedCount(execution: Execution): number {
+    return execution.jobs.filter((job) => job.status === 'FAILED').length;
+  }
+
+  protected countdown(job: JobSummary): string | null {
+    return retryCountdown(job, this.now());
+  }
 
   constructor() {
     inject(ActivatedRoute)

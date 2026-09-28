@@ -1,14 +1,15 @@
 import { DatePipe, JsonPipe } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { switchMap } from 'rxjs';
+import { interval, map, switchMap } from 'rxjs';
 
 import { problemOf } from '../../core/api/problem';
 import { StatusBadge } from '../../shared/status-badge';
 import { ExecutionService, JobDetail as Job } from './execution.service';
+import { retryCountdown, retryableLabel } from './job-status';
 
 @Component({
   selector: 'app-job-detail',
@@ -30,6 +31,9 @@ import { ExecutionService, JobDetail as Job } from './execution.service';
             <app-status-badge [status]="job.status" />
             {{ job.jobType }} · attempt {{ job.attemptCount }} of {{ job.maxAttempts }} · timeout
             {{ job.timeoutSeconds }} s
+            @if (countdown(job); as countdown) {
+              · <span class="retry-countdown">{{ countdown }}</span>
+            }
           </mat-card-subtitle>
         </mat-card-header>
         <mat-card-content>
@@ -63,6 +67,7 @@ import { ExecutionService, JobDetail as Job } from './execution.service';
               <th>Finished</th>
               <th>Worker</th>
               <th>Error</th>
+              <th>Retry?</th>
             </tr>
           </thead>
           <tbody>
@@ -80,6 +85,7 @@ import { ExecutionService, JobDetail as Job } from './execution.service';
                     —
                   }
                 </td>
+                <td class="retryable">{{ retryable(attempt.retryable) }}</td>
               </tr>
             }
           </tbody>
@@ -98,6 +104,17 @@ export class JobDetail {
   protected readonly job = signal<Job | null>(null);
   protected readonly notFound = signal(false);
   protected readonly error = signal<string | null>(null);
+  private readonly now = toSignal(interval(1000).pipe(map(() => Date.now())), {
+    initialValue: Date.now(),
+  });
+
+  protected countdown(job: Job): string | null {
+    return retryCountdown(job, this.now());
+  }
+
+  protected retryable(value: boolean | null): string {
+    return retryableLabel(value);
+  }
 
   constructor() {
     inject(ActivatedRoute)
