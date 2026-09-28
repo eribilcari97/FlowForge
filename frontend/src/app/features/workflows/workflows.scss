@@ -1,0 +1,91 @@
+:host {
+  display: block;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.page-error {
+  color: var(--mat-sys-error);
+}
+
+.empty,
+.description,
+.limits {
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.danger {
+  color: var(--mat-sys-error);
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 24px;
+}
+
+.status,
+.job-type {
+  font: var(--mat-sys-label-small);
+  padding: 2px 8px;
+  border-radius: 8px;
+  background: var(--mat-sys-surface-container-highest);
+}
+
+.job-type {
+  margin-left: 8px;
+}
+
+.status[data-status='ACTIVE'] {
+  background: var(--mat-sys-primary-container);
+  color: var(--mat-sys-on-primary-container);
+}
+
+.step {
+  height: auto;
+  padding: 8px 0;
+}
+
+.form-card form {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 16px;
+}
+
+.row {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+
+  > * {
+    flex: 1;
+    min-width: 160px;
+  }
+
+  .method {
+    flex: 0 0 140px;
+    min-width: 140px;
+  }
+
+  .grow {
+    flex: 1 1 300px;
+  }
+}
+
+.config {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin: 0 0 16px;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}

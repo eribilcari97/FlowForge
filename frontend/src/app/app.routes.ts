@@ -30,6 +30,29 @@ export const routes: Routes = [
         path: 'projects/:id/edit',
         loadComponent: () => import('./features/projects/project-form').then((m) => m.ProjectForm),
       },
+      {
+        path: 'projects/:projectId/workflows/new',
+        loadComponent: () =>
+          import('./features/workflows/workflow-form').then((m) => m.WorkflowForm),
+      },
+      {
+        path: 'workflows/:id',
+        loadComponent: () =>
+          import('./features/workflows/workflow-page').then((m) => m.WorkflowPage),
+      },
+      {
+        path: 'workflows/:id/edit',
+        loadComponent: () =>
+          import('./features/workflows/workflow-form').then((m) => m.WorkflowForm),
+      },
+      {
+        path: 'workflows/:id/steps/new',
+        loadComponent: () => import('./features/workflows/step-form').then((m) => m.StepForm),
+      },
+      {
+        path: 'workflows/:id/steps/:stepId/edit',
+        loadComponent: () => import('./features/workflows/step-form').then((m) => m.StepForm),
+      },
     ],
   },
   { path: '**', redirectTo: '' },
