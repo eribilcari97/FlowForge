@@ -123,6 +123,66 @@ describe('StepForm', () => {
     request.flush({});
   });
 
+  it('sends a TRANSFORM step with its expression', async () => {
+    await setUp({ id: '5' });
+    form().controls.jobType.setValue('TRANSFORM');
+    await fixture.whenStable();
+    expect(element.querySelector('.transform-config')).not.toBeNull();
+
+    form().patchValue({ key: 'calculate_revenue', name: 'Calculate revenue' });
+    form().controls.transform.setValue({
+      expression: "  $sum(steps.fetch_orders.output.body.orders[status='PAID'].total)  ",
+    });
+    await submit();
+
+    const request = http.expectOne('/api/workflows/5/steps');
+    expect(request.request.body.jobType).toBe('TRANSFORM');
+    expect(request.request.body.config).toEqual({
+      expression: "$sum(steps.fetch_orders.output.body.orders[status='PAID'].total)",
+    });
+    request.flush({});
+  });
+
+  it('sends an EMAIL step with split recipients and only the bodies that were filled in', async () => {
+    await setUp({ id: '5' });
+    form().controls.jobType.setValue('EMAIL');
+    await fixture.whenStable();
+    expect(element.querySelector('.email-config')).not.toBeNull();
+
+    form().patchValue({ key: 'send_report', name: 'Send report' });
+    form().controls.email.setValue({
+      to: '{{input.recipient}}, finance@example.com',
+      cc: '',
+      subject: 'Daily sales',
+      text: 'Revenue: {{steps.calculate_revenue.output.revenue}}',
+      html: '',
+    });
+    await submit();
+
+    const request = http.expectOne('/api/workflows/5/steps');
+    expect(request.request.body.config).toEqual({
+      to: ['{{input.recipient}}', 'finance@example.com'],
+      subject: 'Daily sales',
+      text: 'Revenue: {{steps.calculate_revenue.output.revenue}}',
+    });
+    request.flush({});
+  });
+
+  it('requires a text or an HTML body for an email', async () => {
+    await setUp({ id: '5' });
+    form().controls.jobType.setValue('EMAIL');
+    form().patchValue({ key: 'send_report', name: 'Send report' });
+    form().controls.email.patchValue({ to: 'ops@example.com', subject: 'Report' });
+
+    await submit();
+
+    http.expectNone('/api/workflows/5/steps');
+    expect(form().controls.email.controls.text.hasError('textOrHtml')).toBe(true);
+
+    form().controls.email.patchValue({ html: '<p>Report</p>' });
+    expect(form().controls.email.valid).toBe(true);
+  });
+
   it('does not send the request while the HTTP body is not valid JSON', async () => {
     await setUp({ id: '5' });
     form().patchValue({ key: 'fetch', name: 'Fetch' });

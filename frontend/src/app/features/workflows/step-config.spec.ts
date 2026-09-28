@@ -41,7 +41,20 @@ describe('step config helpers', () => {
     };
     const delayStep: Step = { ...base, jobType: 'DELAY', config: { duration: 'P1D' } };
 
+    const transformStep: Step = {
+      ...base,
+      jobType: 'TRANSFORM',
+      config: { expression: '$sum(\n  steps.a.output.body.total\n)' },
+    };
+    const emailStep: Step = {
+      ...base,
+      jobType: 'EMAIL',
+      config: { to: ['a@x.test', 'b@x.test'], subject: 'Report', text: 'Hi' },
+    };
+
     expect(stepSummary(httpStep)).toBe('PUT https://x.test/a');
     expect(stepSummary(delayStep)).toBe('Wait P1D');
+    expect(stepSummary(transformStep)).toBe('JSONata: $sum( steps.a.output.body.total )');
+    expect(stepSummary(emailStep)).toBe('Email to a@x.test, b@x.test: Report');
   });
 });

@@ -1,6 +1,13 @@
 import { AbstractControl, ValidationErrors } from '@angular/forms';
 
-import { DelayStepConfig, HttpMethod, HttpStepConfig, Step } from './workflow.service';
+import {
+  DelayStepConfig,
+  EmailStepConfig,
+  HttpMethod,
+  HttpStepConfig,
+  Step,
+  TransformStepConfig,
+} from './workflow.service';
 
 export interface HttpConfigForm {
   method: HttpMethod;
@@ -22,7 +29,29 @@ export const emptyHttpConfig: HttpConfigForm = {
   expectedStatus: '',
 };
 
+export interface TransformConfigForm {
+  expression: string;
+}
+
+export interface EmailConfigForm {
+  to: string;
+  cc: string;
+  subject: string;
+  text: string;
+  html: string;
+}
+
 export const emptyDelayConfig: DelayConfigForm = { duration: 'PT30S' };
+
+export const emptyTransformConfig: TransformConfigForm = { expression: '' };
+
+export const emptyEmailConfig: EmailConfigForm = {
+  to: '',
+  cc: '',
+  subject: '',
+  text: '',
+  html: '',
+};
 
 export function toHttpConfig(form: HttpConfigForm): HttpStepConfig {
   const config: HttpStepConfig = { method: form.method, url: form.url.trim() };
@@ -58,12 +87,67 @@ export function delayConfigForm(step: Step): DelayConfigForm {
   return { duration: (step.config as DelayStepConfig).duration };
 }
 
-export function stepSummary(step: Step): string {
-  if (step.jobType === 'HTTP') {
-    const config = step.config as HttpStepConfig;
-    return `${config.method} ${config.url}`;
+export function toTransformConfig(form: TransformConfigForm): TransformStepConfig {
+  return { expression: form.expression.trim() };
+}
+
+export function toEmailConfig(form: EmailConfigForm): EmailStepConfig {
+  const config: EmailStepConfig = {
+    to: splitAddresses(form.to),
+    subject: form.subject.trim(),
+  };
+  const cc = splitAddresses(form.cc);
+  if (cc.length) {
+    config.cc = cc;
   }
-  return `Wait ${(step.config as DelayStepConfig).duration}`;
+  if (form.text.trim()) {
+    config.text = form.text;
+  }
+  if (form.html.trim()) {
+    config.html = form.html;
+  }
+  return config;
+}
+
+export function transformConfigForm(step: Step): TransformConfigForm {
+  return { expression: (step.config as TransformStepConfig).expression };
+}
+
+export function emailConfigForm(step: Step): EmailConfigForm {
+  const config = step.config as EmailStepConfig;
+  return {
+    to: config.to.join(', '),
+    cc: config.cc?.join(', ') ?? '',
+    subject: config.subject,
+    text: config.text ?? '',
+    html: config.html ?? '',
+  };
+}
+
+export function stepSummary(step: Step): string {
+  switch (step.jobType) {
+    case 'HTTP': {
+      const config = step.config as HttpStepConfig;
+      return `${config.method} ${config.url}`;
+    }
+    case 'DELAY':
+      return `Wait ${(step.config as DelayStepConfig).duration}`;
+    case 'TRANSFORM': {
+      const expression = (step.config as TransformStepConfig).expression.replace(/\s+/g, ' ');
+      return `JSONata: ${expression.length > 80 ? expression.slice(0, 77) + '…' : expression}`;
+    }
+    case 'EMAIL': {
+      const config = step.config as EmailStepConfig;
+      return `Email to ${config.to.join(', ')}: ${config.subject}`;
+    }
+  }
+}
+
+function splitAddresses(value: string): string[] {
+  return value
+    .split(/[,;\n]/)
+    .map((address) => address.trim())
+    .filter((address) => address.length > 0);
 }
 
 export function jsonValidator(control: AbstractControl): ValidationErrors | null {

@@ -3,7 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 
 export type WorkflowStatus = 'DRAFT' | 'ACTIVE' | 'ARCHIVED';
-export type JobType = 'HTTP' | 'DELAY';
+export type JobType = 'HTTP' | 'DELAY' | 'TRANSFORM' | 'EMAIL';
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
 export interface HttpStepConfig {
@@ -18,7 +18,19 @@ export interface DelayStepConfig {
   duration: string;
 }
 
-export type StepConfig = HttpStepConfig | DelayStepConfig;
+export interface TransformStepConfig {
+  expression: string;
+}
+
+export interface EmailStepConfig {
+  to: string[];
+  cc?: string[];
+  subject: string;
+  text?: string;
+  html?: string;
+}
+
+export type StepConfig = HttpStepConfig | DelayStepConfig | TransformStepConfig | EmailStepConfig;
 
 export interface Step {
   id: number;
