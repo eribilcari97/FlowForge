@@ -26,13 +26,13 @@ class RetryPolicyTest {
     }
 
     @ParameterizedTest
-    @EnumSource(value = ErrorType.class, names = { "CONNECTION_ERROR", "HTTP_5XX", "HTTP_429", "UNEXPECTED_ERROR" })
+    @EnumSource(value = ErrorType.class, names = { "CONNECTION_ERROR", "HTTP_5XX", "HTTP_429", "EMAIL_DEFERRED", "UNEXPECTED_ERROR" })
     void transientErrorsAreRetriedEvenForUnsafeSteps(ErrorType type) {
         assertThat(RetryPolicy.isRetryable(type, false)).isTrue();
     }
 
     @ParameterizedTest
-    @EnumSource(value = ErrorType.class, names = { "TIMEOUT", "LEASE_EXPIRED" })
+    @EnumSource(value = ErrorType.class, names = { "TIMEOUT", "LEASE_EXPIRED", "OUTCOME_UNKNOWN" })
     void anUnknownOutcomeIsRetriedOnlyWhenTheStepIsSafeToRepeat(ErrorType type) {
         assertThat(RetryPolicy.isRetryable(type, true)).isTrue();
         assertThat(RetryPolicy.isRetryable(type, false)).isFalse();
@@ -41,7 +41,8 @@ class RetryPolicyTest {
 
     @ParameterizedTest
     @EnumSource(value = ErrorType.class,
-            names = { "HTTP_4XX", "UNEXPECTED_STATUS", "INVALID_CONFIG", "PLACEHOLDER_MISSING", "OUTPUT_TOO_LARGE" })
+            names = { "HTTP_4XX", "UNEXPECTED_STATUS", "INVALID_CONFIG", "PLACEHOLDER_MISSING", "OUTPUT_TOO_LARGE",
+                    "TRANSFORM_ERROR", "EMAIL_REJECTED" })
     void errorsThatWouldHappenAgainAreNeverRetried(ErrorType type) {
         assertThat(RetryPolicy.isRetryable(type, true)).isFalse();
         assertThat(RetryPolicy.isOutcomeUnknown(type)).isFalse();

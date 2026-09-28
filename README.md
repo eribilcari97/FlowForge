@@ -501,7 +501,8 @@ FlowForge/
 **Prerequisites:** Java 21 or newer, Node.js 24 (or 22 LTS), Docker.
 
 ```bash
-# 1. Start the development services (PostgreSQL on localhost:5432)
+# 1. Start the development services
+#    PostgreSQL on localhost:5432, Mailpit SMTP on localhost:1025 and its web UI on http://localhost:8025
 docker compose up -d
 
 # 2. Create backend/.env from the template and set FLOWFORGE_JWT_SECRET
@@ -528,6 +529,8 @@ The backend reads these variables from `backend/.env` when that file exists. `ba
 |---|---|
 | `FLOWFORGE_JWT_SECRET` | JWT signing key (at least 32 bytes). Required. |
 | `FLOWFORGE_DB_URL`, `FLOWFORGE_DB_USERNAME`, `FLOWFORGE_DB_PASSWORD` | Database connection. Defaults match `docker-compose.yml`. |
+| `FLOWFORGE_SMTP_HOST`, `FLOWFORGE_SMTP_PORT`, `FLOWFORGE_SMTP_USERNAME`, `FLOWFORGE_SMTP_PASSWORD` | SMTP server for EMAIL steps. Defaults to the Mailpit container (`localhost:1025`, no login). |
+| `FLOWFORGE_MAIL_FROM` | Sender address of EMAIL steps. Default `flowforge@localhost`. |
 
 Engine settings live under `flowforge.*`: worker threads, poll interval, lease grace, recovery and scheduler intervals, and limits such as 30 steps per workflow and 256 KB of job output.
 

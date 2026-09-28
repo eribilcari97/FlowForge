@@ -122,7 +122,7 @@ class HttpJobHandlerTest {
 
         JobResult result = handler.execute(mapper.readTree("""
                 { "method": "GET", "url": "http://localhost:%d/nothing" }
-                """.formatted(closedPort)), new JobContext(301, 1, 5));
+                """.formatted(closedPort)), new JobContext(301, 1, 5, null));
 
         assertThat(result).isInstanceOfSatisfying(JobResult.Failure.class,
                 failure -> assertThat(failure.type()).isEqualTo(ErrorType.CONNECTION_ERROR));
@@ -181,6 +181,6 @@ class HttpJobHandlerTest {
 
     private JobResult execute(String configTemplate, int timeoutSeconds) {
         return handler.execute(mapper.readTree(configTemplate.formatted(server.baseUrl())),
-                new JobContext(301, 1, timeoutSeconds));
+                new JobContext(301, 1, timeoutSeconds, null));
     }
 }

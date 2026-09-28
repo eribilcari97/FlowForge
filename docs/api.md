@@ -256,6 +256,8 @@ Config per job type:
 |---|---|
 | `HTTP` | `method` (GET/POST/PUT/PATCH/DELETE, required), `url` (absolute http/https, required), `headers` (map), `body` (any JSON; placeholders allowed inside strings), `expectedStatus` (default: any 2xx) |
 | `DELAY` | `duration`: ISO-8601, `PT1S` … `P7D` |
+| `TRANSFORM` | `expression`: a JSONata expression, checked for syntax. It is evaluated against `{ input, steps: { <key>: { output } }, execution: { id, runNumber } }`, and its result becomes the job's output. `steps.<key>` references must be upstream (checked at activation). |
+| `EMAIL` | `to` (1–20 addresses, required), `cc` (optional), `subject` (required), `text` and/or `html` (at least one). Addresses may be placeholders. The sender comes from the server configuration (`flowforge.mail.from`). |
 
 **201** step · **400** · **404** · **409** `DUPLICATE_NAME` (key) · **409** `INVALID_STATE` (archived) · **422** `STEP_LIMIT_REACHED` if the workflow already has 30 steps
 

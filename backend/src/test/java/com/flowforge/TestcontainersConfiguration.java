@@ -3,6 +3,7 @@ package com.flowforge;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
+import org.springframework.test.context.DynamicPropertyRegistrar;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
@@ -18,5 +19,18 @@ public class TestcontainersConfiguration {
     @ServiceConnection
     PostgreSQLContainer postgresContainer() {
         return new PostgreSQLContainer(DockerImageName.parse("postgres:18-alpine"));
+    }
+
+    @Bean
+    MailpitContainer mailpitContainer() {
+        return new MailpitContainer();
+    }
+
+    @Bean
+    DynamicPropertyRegistrar mailServerProperties(MailpitContainer mailpit) {
+        return registry -> {
+            registry.add("spring.mail.host", mailpit::getHost);
+            registry.add("spring.mail.port", mailpit::smtpPort);
+        };
     }
 }

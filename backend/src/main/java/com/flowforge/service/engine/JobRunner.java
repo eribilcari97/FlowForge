@@ -7,6 +7,8 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.node.JsonNodeFactory;
+import tools.jackson.databind.node.ObjectNode;
 
 import com.flowforge.repository.JobQueue;
 import com.flowforge.repository.JobQueue.ClaimedJob;
@@ -53,7 +55,8 @@ public class JobRunner {
             ExecutionContext context = queue.loadContext(job.executionId());
             JsonNode config = resolver.resolve(job.config(), new PlaceholderResolver.Context(
                     context.input(), job.executionId(), context.runNumber(), context.stepOutputs()));
-            JobContext jobContext = new JobContext(job.id(), job.attemptNumber(), job.timeoutSeconds());
+            JobContext jobContext = new JobContext(job.id(), job.attemptNumber(), job.timeoutSeconds(),
+                    expressionData(job, context));
             JobResult result = attemptTimeout.run(job.timeoutSeconds(),
                     () -> handlers.forType(job.jobType()).execute(config, jobContext));
             if (result instanceof JobResult.Success success && isTooLarge(success.output())) {
@@ -67,6 +70,19 @@ public class JobRunner {
             return new JobResult.Failure(ErrorType.UNEXPECTED_ERROR,
                     e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName());
         }
+    }
+
+    private static JsonNode expressionData(ClaimedJob job, ExecutionContext context) {
+        ObjectNode steps = JsonNodeFactory.instance.objectNode();
+        context.stepOutputs().forEach((stepKey, output) ->
+                steps.set(stepKey, JsonNodeFactory.instance.objectNode().set("output", output)));
+        ObjectNode data = JsonNodeFactory.instance.objectNode();
+        data.set("input", context.input());
+        data.set("steps", steps);
+        data.set("execution", JsonNodeFactory.instance.objectNode()
+                .put("id", job.executionId())
+                .put("runNumber", context.runNumber()));
+        return data;
     }
 
     private static boolean isTooLarge(JsonNode output) {

@@ -301,6 +301,10 @@ If it updates **0 rows**, this attempt is no longer the current one. For example
 | `TIMEOUT` | No response within `timeoutSeconds` | Only if the step is **safe to repeat** (§8) |
 | `HTTP_4XX` | 400, 401, 404: the request itself is wrong | No |
 | `UNEXPECTED_STATUS` | A status outside `expectedStatus` that isn't 4xx or 5xx (for example 200 when the step expects 201) | No |
+| `TRANSFORM_ERROR` | The JSONata expression doesn't parse or fails while evaluating (including its time and recursion limits) | No |
+| `EMAIL_DEFERRED` | The SMTP server answered 4xx (temporary, for example greylisting), so nothing was accepted | Yes |
+| `EMAIL_REJECTED` | The SMTP server answered 5xx (for example an unknown mailbox), or authentication failed | No |
+| `OUTCOME_UNKNOWN` | Sending failed in a way that leaves it unclear whether the mail was accepted | Only if safe to repeat (EMAIL never is) |
 | `INVALID_CONFIG`, `PLACEHOLDER_MISSING` | Bad URL, missing value | No |
 | `OUTPUT_TOO_LARGE` | Response over 256 KB | No |
 | `LEASE_EXPIRED` | Worker disappeared (§9) | Only if safe to repeat |

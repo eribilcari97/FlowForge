@@ -19,13 +19,15 @@ public final class RetryPolicy {
 
     public static boolean isRetryable(ErrorType errorType, boolean safeToRepeat) {
         return switch (errorType) {
-            case CONNECTION_ERROR, HTTP_5XX, HTTP_429, UNEXPECTED_ERROR -> true;
-            case TIMEOUT, LEASE_EXPIRED -> safeToRepeat;
-            case HTTP_4XX, UNEXPECTED_STATUS, INVALID_CONFIG, PLACEHOLDER_MISSING, OUTPUT_TOO_LARGE -> false;
+            case CONNECTION_ERROR, HTTP_5XX, HTTP_429, EMAIL_DEFERRED, UNEXPECTED_ERROR -> true;
+            case TIMEOUT, LEASE_EXPIRED, OUTCOME_UNKNOWN -> safeToRepeat;
+            case HTTP_4XX, UNEXPECTED_STATUS, INVALID_CONFIG, PLACEHOLDER_MISSING, OUTPUT_TOO_LARGE, TRANSFORM_ERROR,
+                    EMAIL_REJECTED -> false;
         };
     }
 
     public static boolean isOutcomeUnknown(ErrorType errorType) {
-        return errorType == ErrorType.TIMEOUT || errorType == ErrorType.LEASE_EXPIRED;
+        return errorType == ErrorType.TIMEOUT || errorType == ErrorType.LEASE_EXPIRED
+                || errorType == ErrorType.OUTCOME_UNKNOWN;
     }
 }

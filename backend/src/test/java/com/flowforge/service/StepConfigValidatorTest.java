@@ -127,6 +127,50 @@ class StepConfigValidatorTest {
                 .containsExactly(new FieldError("config.url", "unknown field"));
     }
 
+    @Test
+    void acceptsAValidTransformExpression() {
+        assertValid(JobType.TRANSFORM, """
+                { "expression": "$sum(steps.fetch_orders.output.body.orders[status='PAID'].total)" }
+                """);
+    }
+
+    @Test
+    void rejectsATransformExpressionThatDoesNotParse() {
+        assertThat(errors(JobType.TRANSFORM, """
+                { "expression": "orders[status=" }
+                """))
+                .singleElement()
+                .satisfies(error -> {
+                    assertThat(error.field()).isEqualTo("config.expression");
+                    assertThat(error.message()).startsWith("is not a valid JSONata expression");
+                });
+    }
+
+    @Test
+    void acceptsAnEmailWithPlaceholdersInTheRecipients() {
+        assertValid(JobType.EMAIL, """
+                { "to": ["{{input.customer.email}}", "ops@example.com"], "subject": "Report", "html": "<p>Hi</p>" }
+                """);
+    }
+
+    @Test
+    void anEmailNeedsRecipientsASubjectAndABody() {
+        assertThat(errors(JobType.EMAIL, """
+                { "to": [], "subject": "" }
+                """))
+                .extracting(FieldError::field)
+                .containsExactlyInAnyOrder("config.to", "config.subject", "config.text");
+    }
+
+    @Test
+    void emailAddressesMustBeValid() {
+        assertThat(errors(JobType.EMAIL, """
+                { "to": ["ops@example.com", "not an address"], "cc": ["@"], "subject": "Report", "text": "Hi" }
+                """))
+                .extracting(FieldError::field)
+                .containsExactlyInAnyOrder("config.to.1", "config.cc.0");
+    }
+
     private void assertValid(JobType jobType, String json) {
         assertThatCode(() -> validator.validate(jobType, mapper.readTree(json))).doesNotThrowAnyException();
     }

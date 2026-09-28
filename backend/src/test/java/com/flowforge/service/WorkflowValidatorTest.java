@@ -113,6 +113,21 @@ class WorkflowValidatorTest {
                 .singleElement().asString().startsWith("Dependencies form a cycle:");
     }
 
+    @Test
+    void transformExpressionsMayOnlyReadUpstreamSteps() {
+        httpStep("fetch_orders", """
+                { "method": "GET", "url": "https://shop.example.com/orders" }
+                """);
+        step("revenue", JobType.TRANSFORM, """
+                { "expression": "$sum(steps.fetch_orders.output.body.total) + $count(steps.refunds.output)" }
+                """);
+
+        assertThat(validate()).containsExactly(
+                new ValidationProblem("revenue",
+                        "Expression references steps.fetch_orders, which is not upstream of revenue"),
+                new ValidationProblem("revenue", "Expression references steps.refunds, which does not exist"));
+    }
+
     private void httpStep(String key, String config, String... dependsOn) {
         step(key, JobType.HTTP, config, dependsOn);
     }

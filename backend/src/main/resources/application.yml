@@ -20,12 +20,25 @@ spring:
   flyway:
     locations: classpath:db/migration
 
+  mail:
+    host: ${FLOWFORGE_SMTP_HOST:localhost}
+    port: ${FLOWFORGE_SMTP_PORT:1025}
+    username: ${FLOWFORGE_SMTP_USERNAME:}
+    password: ${FLOWFORGE_SMTP_PASSWORD:}
+    properties:
+      mail.smtp.connectiontimeout: 10000
+      mail.smtp.timeout: 10000
+      mail.smtp.writetimeout: 10000
+
   jackson:
     # Unknown JSON fields are rejected (docs/api.md §2), e.g. typos in step configs.
     deserialization:
       fail-on-unknown-properties: true
 
 management:
+  health:
+    mail:
+      enabled: false
   endpoints:
     web:
       exposure:
@@ -49,3 +62,5 @@ flowforge:
     enabled: true
     interval: 15s
     max-runs-per-tick: 100
+  mail:
+    from: ${FLOWFORGE_MAIL_FROM:flowforge@localhost}
