@@ -1,20 +1,35 @@
+import { DatePipe } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
+import { MatDialog } from '@angular/material/dialog';
 import { MatListModule } from '@angular/material/list';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { switchMap } from 'rxjs';
+import { forkJoin, switchMap } from 'rxjs';
 
 import { Problem, problemOf } from '../../core/api/problem';
+import { StatusBadge } from '../../shared/status-badge';
+import { Execution, ExecutionService, ExecutionSummary } from '../executions/execution.service';
+import { RunDialog, RunDialogData } from '../executions/run-dialog';
 import { DependencyPicker } from './dependency-picker';
 import { stepSummary } from './step-config';
 import { dependencyKeys } from './workflow-graph';
 import { Step, Workflow, WorkflowService } from './workflow.service';
 
+const RECENT_RUNS = 5;
+
 @Component({
   selector: 'app-workflow-page',
-  imports: [RouterLink, MatButtonModule, MatCardModule, MatListModule, DependencyPicker],
+  imports: [
+    RouterLink,
+    DatePipe,
+    MatButtonModule,
+    MatCardModule,
+    MatListModule,
+    DependencyPicker,
+    StatusBadge,
+  ],
   styleUrl: './workflows.scss',
   template: `
     @if (notFound()) {
@@ -61,6 +76,7 @@ import { Step, Workflow, WorkflowService } from './workflow.service';
                 Activate
               </button>
             } @else {
+              <button mat-flat-button class="run" (click)="run(workflow)">Run</button>
               <button
                 mat-button
                 class="deactivate"
@@ -82,6 +98,25 @@ import { Step, Workflow, WorkflowService } from './workflow.service';
           </mat-card-actions>
         }
       </mat-card>
+
+      <header class="section-header">
+        <h2>Recent runs</h2>
+        <a mat-button routerLink="/executions">All executions</a>
+      </header>
+      @if (recentRuns().length === 0) {
+        <p class="empty">This workflow has not run yet.</p>
+      } @else {
+        <mat-nav-list class="recent-runs">
+          @for (run of recentRuns(); track run.id) {
+            <a mat-list-item [routerLink]="['/executions', run.id]">
+              <span matListItemTitle>
+                Run #{{ run.runNumber }} <app-status-badge [status]="run.status" />
+              </span>
+              <span matListItemLine>{{ run.createdAt | date: 'medium' }}</span>
+            </a>
+          }
+        </mat-nav-list>
+      }
 
       <header class="section-header">
         <h2>Steps ({{ workflow.steps.length }}/{{ maxSteps }})</h2>
@@ -159,10 +194,13 @@ import { Step, Workflow, WorkflowService } from './workflow.service';
 })
 export class WorkflowPage {
   private readonly workflows = inject(WorkflowService);
+  private readonly executions = inject(ExecutionService);
+  private readonly dialog = inject(MatDialog);
   private readonly router = inject(Router);
 
   protected readonly maxSteps = 30;
   protected readonly workflow = signal<Workflow | null>(null);
+  protected readonly recentRuns = signal<ExecutionSummary[]>([]);
   protected readonly notFound = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly problems = signal<NonNullable<Problem['problems']>>([]);
@@ -172,11 +210,20 @@ export class WorkflowPage {
   constructor() {
     inject(ActivatedRoute)
       .paramMap.pipe(
-        switchMap((params) => this.workflows.get(Number(params.get('id')))),
+        switchMap((params) => {
+          const id = Number(params.get('id'));
+          return forkJoin({
+            workflow: this.workflows.get(id),
+            runs: this.executions.listOfWorkflow(id, 0, RECENT_RUNS),
+          });
+        }),
         takeUntilDestroyed(),
       )
       .subscribe({
-        next: (workflow) => this.workflow.set(workflow),
+        next: ({ workflow, runs }) => {
+          this.workflow.set(workflow);
+          this.recentRuns.set(runs.items);
+        },
         error: (error: unknown) =>
           problemOf(error)?.status === 404
             ? this.notFound.set(true)
@@ -186,6 +233,19 @@ export class WorkflowPage {
 
   protected summary(step: Step): string {
     return stepSummary(step);
+  }
+
+  run(workflow: Workflow): void {
+    this.dialog
+      .open<RunDialog, RunDialogData, Execution>(RunDialog, {
+        data: { workflowId: workflow.id, workflowName: workflow.name },
+      })
+      .afterClosed()
+      .subscribe((started) => {
+        if (started) {
+          this.router.navigate(['/executions', started.id]);
+        }
+      });
   }
 
   protected dependenciesText(workflow: Workflow, step: Step): string {

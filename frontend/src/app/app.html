@@ -1,5 +1,11 @@
 <mat-toolbar>
   <a class="brand" routerLink="/">FlowForge</a>
+  @if (auth.user()) {
+    <nav class="nav">
+      <a mat-button routerLink="/projects">Projects</a>
+      <a mat-button routerLink="/executions">Executions</a>
+    </nav>
+  }
   <span class="spacer"></span>
   <span class="backend-status" [attr.data-status]="backendStatus() ?? 'CHECKING'">
     Backend: {{ backendStatus() ?? 'checking…' }}

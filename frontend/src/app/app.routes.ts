@@ -53,6 +53,16 @@ export const routes: Routes = [
         path: 'workflows/:id/steps/:stepId/edit',
         loadComponent: () => import('./features/workflows/step-form').then((m) => m.StepForm),
       },
+      {
+        path: 'executions',
+        loadComponent: () =>
+          import('./features/executions/execution-list').then((m) => m.ExecutionList),
+      },
+      {
+        path: 'executions/:id',
+        loadComponent: () =>
+          import('./features/executions/execution-detail').then((m) => m.ExecutionDetail),
+      },
     ],
   },
   { path: '**', redirectTo: '' },

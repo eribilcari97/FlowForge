@@ -60,7 +60,34 @@ describe('WorkflowPage', () => {
     element = fixture.nativeElement;
     await fixture.whenStable();
     http.expectOne('/api/workflows/5').flush(WORKFLOW);
+    http
+      .expectOne((request) => request.url === '/api/workflows/5/executions')
+      .flush({
+        items: [
+          {
+            id: 91,
+            workflowId: 5,
+            workflowName: 'Customer onboarding',
+            runNumber: 3,
+            status: 'CANCELLED',
+            triggerType: 'MANUAL',
+            createdAt: '2026-09-28T10:00:00Z',
+            finishedAt: '2026-09-28T10:01:00Z',
+            errorSummary: null,
+          },
+        ],
+        page: 0,
+        size: 5,
+        total: 1,
+      });
     await fixture.whenStable();
+  });
+
+  it('shows the recent runs of the workflow', () => {
+    const runs = element.querySelector('.recent-runs')!.textContent!.replace(/\s+/g, ' ');
+
+    expect(runs).toContain('Run #3');
+    expect(runs).toContain('CANCELLED');
   });
 
   afterEach(() => http.verify());
