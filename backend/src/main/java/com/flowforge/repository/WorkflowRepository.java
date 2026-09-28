@@ -1,5 +1,6 @@
 package com.flowforge.repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -42,4 +43,14 @@ public interface WorkflowRepository extends Repository<Workflow, Long> {
     Optional<Workflow> findActiveByName(Long projectId, String name);
 
     long countByProjectId(Long projectId);
+
+    @Query("select w from Workflow w where w.id in :ids")
+    List<Workflow> findAllByIds(Collection<Long> ids);
+
+    @Query(value = """
+                   update workflow set execution_count = execution_count + 1
+                   where id = :id
+                   returning execution_count
+                   """, nativeQuery = true)
+    int nextRunNumber(Long id);
 }

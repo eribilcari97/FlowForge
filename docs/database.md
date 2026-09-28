@@ -352,10 +352,10 @@ Executions are checked through `workflow → project`. Jobs are checked through 
 | `V2__create_projects.sql` | `project` |
 | `V3__create_workflows_and_steps.sql` | `workflow`, `workflow_step` |
 | `V4__create_dependencies.sql` | `workflow_dependency` |
-| `V5__create_executions_and_jobs.sql` | `workflow_execution`, `job_execution` (without lease columns) |
+| `V5__create_executions_and_jobs.sql` | `workflow_execution` (without the schedule columns), `job_execution` (without `locked_by` and lease columns) |
 | `V6__create_job_attempts.sql` | `job_attempt`, `locked_by` |
 | `V7__add_job_leases.sql` | `lease_expires_at`, `ck_job_running_lease`, `ix_job_lease` |
-| `V8__create_schedules.sql` | `workflow_schedule`, FK `workflow_execution.schedule_id` |
+| `V8__create_schedules.sql` | `workflow_schedule`, columns `workflow_execution.schedule_id` (with FK) and `scheduled_for` |
 | `V9__add_transform_and_email_types.sql` | extend the `job_type` checks |
 
 Rule: a migration is **never edited after it's been merged**. Fixes go in a new migration.

@@ -68,6 +68,14 @@ public class Workflow {
         status = WorkflowStatus.DRAFT;
     }
 
+    public void archive() {
+        status = WorkflowStatus.ARCHIVED;
+    }
+
+    public boolean isActive() {
+        return status == WorkflowStatus.ACTIVE;
+    }
+
     public boolean isArchived() {
         return status == WorkflowStatus.ARCHIVED;
     }

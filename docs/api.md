@@ -306,11 +306,13 @@ Optional header: `Idempotency-Key: 6b0f3c1e-…` (the UI generates one per Run-b
 { "input": { "customer": { "email": "jane@example.com", "plan": "PRO" } } }
 ```
 
-**202 Accepted** + `Location: /api/executions/{id}`:
+**202 Accepted** + `Location: /api/executions/{id}`. The body is the execution in the same shape as `GET /api/executions/{executionId}` (including its jobs):
 
 ```json
-{ "id": 91, "workflowId": 5, "runNumber": 12, "status": "RUNNING", "triggerType": "MANUAL", "createdAt": "2026-09-27T09:30:00Z" }
+{ "id": 91, "workflowId": 5, "workflowName": "Customer onboarding", "runNumber": 12, "status": "RUNNING", "triggerType": "MANUAL", "createdAt": "2026-09-27T09:30:00Z", "jobs": [ … ] }
 ```
+
+The body is optional. Without it, `input` is `{}`. `input` must be a JSON object. `Idempotency-Key` is 1–100 characters.
 
 - Same `Idempotency-Key` again → **200** with the *existing* execution (no second run).
 - **404** · **409** `INVALID_STATE` (workflow not `ACTIVE`) · **422** `WORKFLOW_INVALID` (it became invalid after activation, because edits are allowed while `ACTIVE`)

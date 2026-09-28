@@ -22,6 +22,7 @@ import com.flowforge.exception.NotFoundException;
 import com.flowforge.exception.WorkflowInvalidException;
 import com.flowforge.repository.ProjectRepository;
 import com.flowforge.repository.WorkflowDependencyRepository;
+import com.flowforge.repository.WorkflowExecutionRepository;
 import com.flowforge.repository.WorkflowRepository;
 import com.flowforge.repository.WorkflowStepRepository;
 
@@ -31,14 +32,17 @@ public class WorkflowService {
     private final WorkflowRepository workflows;
     private final WorkflowStepRepository steps;
     private final WorkflowDependencyRepository dependencies;
+    private final WorkflowExecutionRepository executions;
     private final ProjectRepository projects;
     private final WorkflowValidator validator;
 
     public WorkflowService(WorkflowRepository workflows, WorkflowStepRepository steps,
-            WorkflowDependencyRepository dependencies, ProjectRepository projects, WorkflowValidator validator) {
+            WorkflowDependencyRepository dependencies, WorkflowExecutionRepository executions,
+            ProjectRepository projects, WorkflowValidator validator) {
         this.workflows = workflows;
         this.steps = steps;
         this.dependencies = dependencies;
+        this.executions = executions;
         this.projects = projects;
         this.validator = validator;
     }
@@ -105,7 +109,11 @@ public class WorkflowService {
     @Transactional
     public void delete(Long workflowId, Long ownerId) {
         Workflow workflow = findOwned(workflowId, ownerId);
-        workflows.delete(workflow);
+        if (executions.existsByWorkflowId(workflowId)) {
+            workflow.archive();
+        } else {
+            workflows.delete(workflow);
+        }
     }
 
     Workflow findOwned(Long workflowId, Long ownerId) {
