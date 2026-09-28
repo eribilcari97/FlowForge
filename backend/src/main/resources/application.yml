@@ -2,6 +2,9 @@ spring:
   application:
     name: flowforge
 
+  config:
+    import: optional:file:.env[.properties]
+
   # Local development defaults match docker-compose.yml. Override with environment variables elsewhere.
   datasource:
     url: ${FLOWFORGE_DB_URL:jdbc:postgresql://localhost:5432/flowforge}

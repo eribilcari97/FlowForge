@@ -504,11 +504,15 @@ FlowForge/
 # 1. Start the development services (PostgreSQL on localhost:5432)
 docker compose up -d
 
-# 2. Start the backend on http://localhost:8080
-cd backend
-./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
+# 2. Create backend/.env from the template and set FLOWFORGE_JWT_SECRET
+#    (for example: openssl rand -base64 48)
+cp backend/.env.example backend/.env
 
-# 3. Start the frontend on http://localhost:4200
+# 3. Start the backend on http://localhost:8080
+cd backend
+./mvnw spring-boot:run
+
+# 4. Start the frontend on http://localhost:4200
 cd frontend
 npm install
 npm start
@@ -518,9 +522,11 @@ Open `http://localhost:4200` and create an account. The dev server proxies `/api
 
 **Configuration**
 
+The backend reads these variables from `backend/.env` when that file exists. `backend/.env` is gitignored and must never be committed, and `backend/.env.example` is the committed template. Without the file, for example on a server, set them as real environment variables.
+
 | Variable | Purpose |
 |---|---|
-| `FLOWFORGE_JWT_SECRET` | JWT signing key (at least 32 bytes). Required. The `dev` profile supplies a local-only value. |
+| `FLOWFORGE_JWT_SECRET` | JWT signing key (at least 32 bytes). Required. |
 | `FLOWFORGE_DB_URL`, `FLOWFORGE_DB_USERNAME`, `FLOWFORGE_DB_PASSWORD` | Database connection. Defaults match `docker-compose.yml`. |
 
 Engine settings live under `flowforge.*`: worker threads, poll interval, lease grace, recovery and scheduler intervals, and limits such as 30 steps per workflow and 256 KB of job output.
