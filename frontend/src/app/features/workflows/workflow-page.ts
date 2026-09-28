@@ -10,6 +10,8 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { forkJoin, switchMap } from 'rxjs';
 
 import { Problem, problemOf } from '../../core/api/problem';
+import { DependencyGraph } from '../../shared/dependency-graph';
+import { GraphEdgeInput, GraphNodeInput } from '../../shared/graph-layout';
 import { StatusBadge } from '../../shared/status-badge';
 import { Execution, ExecutionService, ExecutionSummary } from '../executions/execution.service';
 import { RunDialog, RunDialogData } from '../executions/run-dialog';
@@ -33,6 +35,7 @@ const RECENT_RUNS = 5;
     StatusBadge,
     MatTabsModule,
     ScheduleList,
+    DependencyGraph,
   ],
   styleUrl: './workflows.scss',
   template: `
@@ -194,6 +197,16 @@ const RECENT_RUNS = 5;
             </mat-list>
           }
         </mat-tab>
+        <mat-tab label="Graph">
+          <ng-template matTabContent>
+            <app-dependency-graph
+              [nodes]="graphNodes(workflow)"
+              [edges]="graphEdges(workflow)"
+              [clickable]="workflow.status !== 'ARCHIVED'"
+              (nodeClick)="openStep(workflow, $event)"
+            />
+          </ng-template>
+        </mat-tab>
         <mat-tab label="Schedules">
           <ng-template matTabContent>
             <app-schedule-list [workflowId]="workflow.id" [workflowStatus]="workflow.status" />
@@ -248,6 +261,24 @@ export class WorkflowPage {
 
   protected summary(step: Step): string {
     return stepSummary(step);
+  }
+
+  protected graphNodes(workflow: Workflow): GraphNodeInput[] {
+    return workflow.steps.map((step) => ({
+      id: String(step.id),
+      label: step.key,
+      detail: `${step.jobType} · ${step.name}`,
+    }));
+  }
+
+  protected graphEdges(workflow: Workflow): GraphEdgeInput[] {
+    return workflow.steps.flatMap((step) =>
+      step.dependsOn.map((dependencyId) => ({ from: String(dependencyId), to: String(step.id) })),
+    );
+  }
+
+  openStep(workflow: Workflow, stepId: string): void {
+    this.router.navigate(['/workflows', workflow.id, 'steps', Number(stepId), 'edit']);
   }
 
   run(workflow: Workflow): void {

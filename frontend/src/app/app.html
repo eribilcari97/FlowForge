@@ -2,6 +2,7 @@
   <a class="brand" routerLink="/">FlowForge</a>
   @if (auth.user()) {
     <nav class="nav">
+      <a mat-button routerLink="/dashboard">Dashboard</a>
       <a mat-button routerLink="/projects">Projects</a>
       <a mat-button routerLink="/executions">Executions</a>
     </nav>

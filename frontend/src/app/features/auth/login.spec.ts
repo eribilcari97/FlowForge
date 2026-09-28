@@ -77,7 +77,7 @@ describe('Login', () => {
       user: { id: 1, email: 'ana@example.com', displayName: 'Ana' },
     });
 
-    expect(navigateByUrl).toHaveBeenCalledWith('/projects');
+    expect(navigateByUrl).toHaveBeenCalledWith('/dashboard');
   });
 
   it('does not call the API while the form is invalid', async () => {

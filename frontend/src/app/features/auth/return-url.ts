@@ -4,5 +4,5 @@ export function safeReturnUrl(returnUrl: string | null): string {
     !returnUrl.startsWith('//') &&
     !returnUrl.startsWith('/login')
     ? returnUrl
-    : '/projects';
+    : '/dashboard';
 }

@@ -9,6 +9,8 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { interval, map, switchMap } from 'rxjs';
 
 import { problemOf } from '../../core/api/problem';
+import { DependencyGraph } from '../../shared/dependency-graph';
+import { GraphEdgeInput, GraphNodeInput } from '../../shared/graph-layout';
 import { StatusBadge } from '../../shared/status-badge';
 import { Execution, ExecutionService, JobSummary } from './execution.service';
 import { retryCountdown } from './job-status';
@@ -24,6 +26,7 @@ import { RunDialog, RunDialogData } from './run-dialog';
     MatButtonToggleModule,
     MatCardModule,
     StatusBadge,
+    DependencyGraph,
   ],
   styleUrl: './executions.scss',
   template: `
@@ -76,6 +79,15 @@ import { RunDialog, RunDialogData } from './run-dialog';
           <button mat-button class="run-again" (click)="runAgain(execution)">Run again</button>
         </mat-card-actions>
       </mat-card>
+
+      <h2>Graph</h2>
+      <app-dependency-graph
+        class="execution-graph"
+        [nodes]="graphNodes(execution)"
+        [edges]="graphEdges(execution)"
+        [clickable]="true"
+        (nodeClick)="openJob(execution, $event)"
+      />
 
       <header class="page-header">
         <h2>Jobs</h2>
@@ -149,6 +161,28 @@ export class ExecutionDetail {
   private readonly now = toSignal(interval(1000).pipe(map(() => Date.now())), {
     initialValue: Date.now(),
   });
+
+  protected graphNodes(execution: Execution): GraphNodeInput[] {
+    return execution.jobs.map((job) => ({
+      id: job.stepKey,
+      label: job.stepKey,
+      detail: `${job.jobType} · ${job.status}`,
+      status: job.status,
+    }));
+  }
+
+  protected graphEdges(execution: Execution): GraphEdgeInput[] {
+    return execution.jobs.flatMap((job) =>
+      job.dependsOn.map((dependency) => ({ from: dependency, to: job.stepKey })),
+    );
+  }
+
+  openJob(execution: Execution, stepKey: string): void {
+    const job = execution.jobs.find((candidate) => candidate.stepKey === stepKey);
+    if (job) {
+      this.router.navigate(['/jobs', job.id]);
+    }
+  }
 
   protected visibleJobs(execution: Execution): JobSummary[] {
     return this.onlyFailed()
