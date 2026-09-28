@@ -34,7 +34,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             "uq_project_owner_name", new ConstraintConflict(ErrorCode.DUPLICATE_NAME, "A project with this name already exists"),
             "uq_workflow_project_name", new ConstraintConflict(ErrorCode.DUPLICATE_NAME, "A workflow with this name already exists"),
             "uq_step_key", new ConstraintConflict(ErrorCode.DUPLICATE_NAME, "A step with this key already exists"),
-            "fk_workflow_project", new ConstraintConflict(ErrorCode.PROJECT_NOT_EMPTY, "The project still contains workflows"));
+            "fk_workflow_project", new ConstraintConflict(ErrorCode.PROJECT_NOT_EMPTY, "The project still contains workflows"),
+            "fk_dependency_depends_on", new ConstraintConflict(ErrorCode.STEP_HAS_DEPENDENTS, "Other steps depend on this step"));
 
     private record ConstraintConflict(ErrorCode code, String detail) {
     }
@@ -79,6 +80,20 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     ProblemDetail handleInvalidFields(InvalidFieldsException ex) {
         ProblemDetail problem = problem(HttpStatus.BAD_REQUEST, ErrorCode.VALIDATION_ERROR, ex.getMessage());
         problem.setProperty("errors", ex.getErrors());
+        return problem;
+    }
+
+    @ExceptionHandler(DependencyCycleException.class)
+    ProblemDetail handleDependencyCycle(DependencyCycleException ex) {
+        ProblemDetail problem = problem(HttpStatus.UNPROCESSABLE_CONTENT, ErrorCode.DEPENDENCY_CYCLE, ex.getMessage());
+        problem.setProperty("cycle", ex.getCycle());
+        return problem;
+    }
+
+    @ExceptionHandler(WorkflowInvalidException.class)
+    ProblemDetail handleWorkflowInvalid(WorkflowInvalidException ex) {
+        ProblemDetail problem = problem(HttpStatus.UNPROCESSABLE_CONTENT, ErrorCode.WORKFLOW_INVALID, ex.getMessage());
+        problem.setProperty("problems", ex.getProblems());
         return problem;
     }
 

@@ -54,6 +54,16 @@ public class WorkflowController {
         return workflowService.update(workflowId, currentUser.id(), request);
     }
 
+    @PostMapping("/api/workflows/{workflowId}/activate")
+    WorkflowResponse activate(@PathVariable Long workflowId) {
+        return workflowService.activate(workflowId, currentUser.id());
+    }
+
+    @PostMapping("/api/workflows/{workflowId}/deactivate")
+    WorkflowResponse deactivate(@PathVariable Long workflowId) {
+        return workflowService.deactivate(workflowId, currentUser.id());
+    }
+
     @DeleteMapping("/api/workflows/{workflowId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     void delete(@PathVariable Long workflowId) {

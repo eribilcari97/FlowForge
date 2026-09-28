@@ -1,5 +1,7 @@
 package com.flowforge.dto;
 
+import java.util.List;
+
 import tools.jackson.databind.JsonNode;
 
 import com.flowforge.entity.JobType;
@@ -13,10 +15,11 @@ public record StepResponse(
         JsonNode config,
         int timeoutSeconds,
         int maxAttempts,
-        int retryDelaySeconds) {
+        int retryDelaySeconds,
+        List<Long> dependsOn) {
 
-    public static StepResponse from(WorkflowStep step) {
+    public static StepResponse from(WorkflowStep step, List<Long> dependsOn) {
         return new StepResponse(step.getId(), step.getKey(), step.getName(), step.getJobType(), step.getConfig(),
-                step.getTimeoutSeconds(), step.getMaxAttempts(), step.getRetryDelaySeconds());
+                step.getTimeoutSeconds(), step.getMaxAttempts(), step.getRetryDelaySeconds(), dependsOn);
     }
 }

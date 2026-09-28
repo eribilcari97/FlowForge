@@ -3,6 +3,9 @@ package com.flowforge;
 import static com.flowforge.TestAccounts.body;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.Arrays;
+import java.util.stream.Collectors;
+
 import com.jayway.jsonpath.JsonPath;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -48,6 +51,12 @@ public class TestApi {
                   "config": { "method": "GET", "url": "https://example.com/%s" }
                 }
                 """.formatted(key, key, key));
+    }
+
+    public MvcTestResult setDependencies(String auth, long workflowId, long stepId, long... dependsOn) {
+        String ids = Arrays.stream(dependsOn).mapToObj(String::valueOf).collect(Collectors.joining(", "));
+        return put(auth, "/api/workflows/" + workflowId + "/steps/" + stepId + "/dependencies",
+                "{ \"dependsOn\": [" + ids + "] }");
     }
 
     public MvcTestResult post(String auth, String uri, String json) {

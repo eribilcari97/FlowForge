@@ -11,10 +11,13 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.flowforge.dto.DependenciesRequest;
+import com.flowforge.dto.DependenciesResponse;
 import com.flowforge.dto.StepCreateRequest;
 import com.flowforge.dto.StepResponse;
 import com.flowforge.dto.StepUpdateRequest;
 import com.flowforge.security.CurrentUser;
+import com.flowforge.service.DependencyService;
 import com.flowforge.service.StepService;
 
 @RestController
@@ -22,10 +25,12 @@ import com.flowforge.service.StepService;
 public class StepController {
 
     private final StepService stepService;
+    private final DependencyService dependencyService;
     private final CurrentUser currentUser;
 
-    public StepController(StepService stepService, CurrentUser currentUser) {
+    public StepController(StepService stepService, DependencyService dependencyService, CurrentUser currentUser) {
         this.stepService = stepService;
+        this.dependencyService = dependencyService;
         this.currentUser = currentUser;
     }
 
@@ -39,6 +44,12 @@ public class StepController {
     StepResponse update(@PathVariable Long workflowId, @PathVariable Long stepId,
             @Valid @RequestBody StepUpdateRequest request) {
         return stepService.update(workflowId, stepId, currentUser.id(), request);
+    }
+
+    @PutMapping("/{stepId}/dependencies")
+    DependenciesResponse replaceDependencies(@PathVariable Long workflowId, @PathVariable Long stepId,
+            @Valid @RequestBody DependenciesRequest request) {
+        return dependencyService.replace(workflowId, stepId, currentUser.id(), request);
     }
 
     @DeleteMapping("/{stepId}")

@@ -1,20 +1,27 @@
 package com.flowforge.service;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.flowforge.dto.StepResponse;
+import com.flowforge.dto.ValidationProblem;
 import com.flowforge.dto.WorkflowRequest;
 import com.flowforge.dto.WorkflowResponse;
 import com.flowforge.dto.WorkflowSummaryResponse;
 import com.flowforge.dto.WorkflowUpdateRequest;
 import com.flowforge.entity.Workflow;
+import com.flowforge.entity.WorkflowDependency;
+import com.flowforge.entity.WorkflowStep;
 import com.flowforge.exception.ConflictException;
 import com.flowforge.exception.ErrorCode;
 import com.flowforge.exception.NotFoundException;
+import com.flowforge.exception.WorkflowInvalidException;
 import com.flowforge.repository.ProjectRepository;
+import com.flowforge.repository.WorkflowDependencyRepository;
 import com.flowforge.repository.WorkflowRepository;
 import com.flowforge.repository.WorkflowStepRepository;
 
@@ -23,12 +30,17 @@ public class WorkflowService {
 
     private final WorkflowRepository workflows;
     private final WorkflowStepRepository steps;
+    private final WorkflowDependencyRepository dependencies;
     private final ProjectRepository projects;
+    private final WorkflowValidator validator;
 
-    public WorkflowService(WorkflowRepository workflows, WorkflowStepRepository steps, ProjectRepository projects) {
+    public WorkflowService(WorkflowRepository workflows, WorkflowStepRepository steps,
+            WorkflowDependencyRepository dependencies, ProjectRepository projects, WorkflowValidator validator) {
         this.workflows = workflows;
         this.steps = steps;
+        this.dependencies = dependencies;
         this.projects = projects;
+        this.validator = validator;
     }
 
     @Transactional(readOnly = true)
@@ -65,6 +77,32 @@ public class WorkflowService {
     }
 
     @Transactional
+    public WorkflowResponse activate(Long workflowId, Long ownerId) {
+        Workflow workflow = workflows.findOwnedForUpdate(workflowId, ownerId)
+                .orElseThrow(() -> new NotFoundException("Workflow"));
+        ensureNotArchived(workflow);
+        List<WorkflowStep> workflowSteps = steps.findAllByWorkflowIdOrderById(workflowId);
+        List<WorkflowDependency> edges = dependencies.findAllByWorkflowId(workflowId);
+        List<ValidationProblem> problems =
+                validator.validate(workflowSteps, DependencyService.graphOf(workflowSteps, edges));
+        if (!problems.isEmpty()) {
+            throw new WorkflowInvalidException(problems);
+        }
+        workflow.activate();
+        workflows.flush();
+        return toResponse(workflow);
+    }
+
+    @Transactional
+    public WorkflowResponse deactivate(Long workflowId, Long ownerId) {
+        Workflow workflow = findOwned(workflowId, ownerId);
+        ensureNotArchived(workflow);
+        workflow.deactivate();
+        workflows.flush();
+        return toResponse(workflow);
+    }
+
+    @Transactional
     public void delete(Long workflowId, Long ownerId) {
         Workflow workflow = findOwned(workflowId, ownerId);
         workflows.delete(workflow);
@@ -95,8 +133,12 @@ public class WorkflowService {
     }
 
     private WorkflowResponse toResponse(Workflow workflow) {
+        Map<Long, List<Long>> dependsOnByStep = dependencies.findAllByWorkflowId(workflow.getId()).stream()
+                .collect(Collectors.groupingBy(WorkflowDependency::getStepId,
+                        Collectors.mapping(WorkflowDependency::getDependsOnStepId, Collectors.toList())));
         List<StepResponse> stepResponses = steps.findAllByWorkflowIdOrderById(workflow.getId()).stream()
-                .map(StepResponse::from)
+                .map(step -> StepResponse.from(step,
+                        dependsOnByStep.getOrDefault(step.getId(), List.of()).stream().sorted().toList()))
                 .toList();
         return WorkflowResponse.from(workflow, stepResponses);
     }

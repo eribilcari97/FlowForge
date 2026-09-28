@@ -268,8 +268,10 @@ Config per job type:
 { "dependsOn": [11, 12] }
 ```
 
-Replaces the whole list (an empty list makes the step a root). Every ID must be a step of the same workflow and not the step itself.
-**200** `{ "stepId": 14, "dependsOn": [11, 12] }` · **400** · **404** · **422**:
+Replaces the whole list (an empty list makes the step a root). Duplicate IDs are ignored. Every ID must be a step of the same workflow and not the step itself, otherwise **400** `VALIDATION_ERROR` on the field `dependsOn`.
+**200** `{ "stepId": 14, "dependsOn": [11, 12] }` · **400** · **404** · **409** `INVALID_STATE` (archived) · **422**.
+
+The cycle path follows run order (each step runs before the next one in the list) and starts at the dependency that closes the loop:
 
 ```json
 { "status": 422, "code": "DEPENDENCY_CYCLE", "detail": "This would create a cycle: notify_crm → wait_1_day → notify_crm", "cycle": ["notify_crm", "wait_1_day", "notify_crm"] }
@@ -277,7 +279,7 @@ Replaces the whole list (an empty list makes the step a root). Every ID must be 
 
 ### `POST /api/workflows/{workflowId}/activate`
 
-Runs full validation. **200** workflow with `status: ACTIVE` · **404** · **409** `INVALID_STATE` (archived) · **422**:
+Runs full validation: at least one step, no cycles, every step config valid, and every placeholder known and upstream. Accepted placeholders are `{{input}}`, `{{input.<path>}}`, `{{steps.<key>.output}}`, `{{steps.<key>.output.<path>}}`, `{{execution.id}}` and `{{execution.runNumber}}`. Problems that don't belong to one step have `stepKey: null`. Activation changes the workflow, so its `version` increases. **200** workflow with `status: ACTIVE` · **404** · **409** `INVALID_STATE` (archived) · **422**:
 
 ```json
 {

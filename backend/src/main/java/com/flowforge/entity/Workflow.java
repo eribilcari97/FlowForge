@@ -60,6 +60,14 @@ public class Workflow {
         this.description = description;
     }
 
+    public void activate() {
+        status = WorkflowStatus.ACTIVE;
+    }
+
+    public void deactivate() {
+        status = WorkflowStatus.DRAFT;
+    }
+
     public boolean isArchived() {
         return status == WorkflowStatus.ARCHIVED;
     }

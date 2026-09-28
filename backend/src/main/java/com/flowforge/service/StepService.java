@@ -1,5 +1,8 @@
 package com.flowforge.service;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -8,11 +11,13 @@ import com.flowforge.dto.StepCreateRequest;
 import com.flowforge.dto.StepResponse;
 import com.flowforge.dto.StepUpdateRequest;
 import com.flowforge.entity.Workflow;
+import com.flowforge.entity.WorkflowDependency;
 import com.flowforge.entity.WorkflowStep;
 import com.flowforge.exception.ApiException;
 import com.flowforge.exception.ConflictException;
 import com.flowforge.exception.ErrorCode;
 import com.flowforge.exception.NotFoundException;
+import com.flowforge.repository.WorkflowDependencyRepository;
 import com.flowforge.repository.WorkflowRepository;
 import com.flowforge.repository.WorkflowStepRepository;
 
@@ -27,13 +32,16 @@ public class StepService {
 
     private final WorkflowRepository workflows;
     private final WorkflowStepRepository steps;
+    private final WorkflowDependencyRepository dependencies;
     private final WorkflowService workflowService;
     private final StepConfigValidator configValidator;
 
-    public StepService(WorkflowRepository workflows, WorkflowStepRepository steps, WorkflowService workflowService,
+    public StepService(WorkflowRepository workflows, WorkflowStepRepository steps,
+            WorkflowDependencyRepository dependencies, WorkflowService workflowService,
             StepConfigValidator configValidator) {
         this.workflows = workflows;
         this.steps = steps;
+        this.dependencies = dependencies;
         this.workflowService = workflowService;
         this.configValidator = configValidator;
     }
@@ -56,7 +64,7 @@ public class StepService {
                 valueOrDefault(request.timeoutSeconds(), DEFAULT_TIMEOUT_SECONDS),
                 valueOrDefault(request.maxAttempts(), DEFAULT_MAX_ATTEMPTS),
                 valueOrDefault(request.retryDelaySeconds(), DEFAULT_RETRY_DELAY_SECONDS));
-        return StepResponse.from(steps.saveAndFlush(step));
+        return StepResponse.from(steps.saveAndFlush(step), List.of());
     }
 
     @Transactional
@@ -70,14 +78,29 @@ public class StepService {
                 valueOrDefault(request.maxAttempts(), DEFAULT_MAX_ATTEMPTS),
                 valueOrDefault(request.retryDelaySeconds(), DEFAULT_RETRY_DELAY_SECONDS));
         steps.flush();
-        return StepResponse.from(step);
+        List<Long> dependsOn = dependencies.findAllOfStep(stepId).stream()
+                .map(WorkflowDependency::getDependsOnStepId)
+                .sorted()
+                .toList();
+        return StepResponse.from(step, dependsOn);
     }
 
     @Transactional
     public void delete(Long workflowId, Long stepId, Long ownerId) {
-        Workflow workflow = workflowService.findOwned(workflowId, ownerId);
+        Workflow workflow = workflows.findOwnedForUpdate(workflowId, ownerId)
+                .orElseThrow(() -> new NotFoundException("Workflow"));
         WorkflowService.ensureNotArchived(workflow);
-        steps.delete(findStep(workflowId, stepId));
+        WorkflowStep step = findStep(workflowId, stepId);
+        List<WorkflowDependency> dependents = dependencies.findAllDependingOn(stepId);
+        if (!dependents.isEmpty()) {
+            String dependentKeys = dependents.stream()
+                    .map(edge -> findStep(workflowId, edge.getStepId()).getKey())
+                    .sorted()
+                    .collect(Collectors.joining(", "));
+            throw new ConflictException(ErrorCode.STEP_HAS_DEPENDENTS,
+                    step.getKey() + " is still required by: " + dependentKeys);
+        }
+        steps.delete(step);
     }
 
     private WorkflowStep findStep(Long workflowId, Long stepId) {
