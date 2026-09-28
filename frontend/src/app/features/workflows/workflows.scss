@@ -118,3 +118,26 @@
 .picker-title {
   margin: 0 0 4px;
 }
+
+.workflow-tabs {
+  margin-top: 16px;
+}
+
+.schedule-form {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 24px;
+}
+
+.schedules {
+  width: 100%;
+  border-collapse: collapse;
+
+  th,
+  td {
+    text-align: left;
+    padding: 8px;
+    border-bottom: 1px solid var(--mat-sys-outline-variant);
+  }
+}

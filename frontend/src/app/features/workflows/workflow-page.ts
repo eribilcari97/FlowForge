@@ -5,6 +5,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatDialog } from '@angular/material/dialog';
 import { MatListModule } from '@angular/material/list';
+import { MatTabsModule } from '@angular/material/tabs';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { forkJoin, switchMap } from 'rxjs';
 
@@ -12,6 +13,7 @@ import { Problem, problemOf } from '../../core/api/problem';
 import { StatusBadge } from '../../shared/status-badge';
 import { Execution, ExecutionService, ExecutionSummary } from '../executions/execution.service';
 import { RunDialog, RunDialogData } from '../executions/run-dialog';
+import { ScheduleList } from '../schedules/schedule-list';
 import { DependencyPicker } from './dependency-picker';
 import { stepSummary } from './step-config';
 import { dependencyKeys } from './workflow-graph';
@@ -29,6 +31,8 @@ const RECENT_RUNS = 5;
     MatListModule,
     DependencyPicker,
     StatusBadge,
+    MatTabsModule,
+    ScheduleList,
   ],
   styleUrl: './workflows.scss',
   template: `
@@ -118,73 +122,84 @@ const RECENT_RUNS = 5;
         </mat-nav-list>
       }
 
-      <header class="section-header">
-        <h2>Steps ({{ workflow.steps.length }}/{{ maxSteps }})</h2>
-        @if (workflow.status !== 'ARCHIVED' && workflow.steps.length < maxSteps) {
-          <a mat-flat-button [routerLink]="['/workflows', workflow.id, 'steps', 'new']">Add step</a>
-        }
-      </header>
-
-      @if (error(); as error) {
-        <p class="page-error" role="alert">{{ error }}</p>
-      }
-
-      @if (workflow.steps.length === 0) {
-        <p class="empty">No steps yet. Add an HTTP call or a delay to get started.</p>
-      } @else {
-        <mat-list>
-          @for (step of workflow.steps; track step.id) {
-            <mat-list-item class="step">
-              <span matListItemTitle>
-                <code>{{ step.key }}</code> · {{ step.name }}
-                <span class="job-type">{{ step.jobType }}</span>
-              </span>
-              <span matListItemLine>{{ summary(step) }}</span>
-              <span matListItemLine class="dependencies">{{
-                dependenciesText(workflow, step)
-              }}</span>
-              <span matListItemLine class="limits">
-                timeout {{ step.timeoutSeconds }} s · {{ step.maxAttempts }} attempts · retry delay
-                {{ step.retryDelaySeconds }} s
-              </span>
-              @if (workflow.status !== 'ARCHIVED') {
-                <span matListItemMeta class="step-actions">
-                  <button
-                    mat-button
-                    class="edit-dependencies"
-                    (click)="editingDependencies.set(step.id)"
-                  >
-                    Dependencies
-                  </button>
-                  <a
-                    mat-button
-                    [routerLink]="['/workflows', workflow.id, 'steps', step.id, 'edit']"
-                  >
-                    Edit
-                  </a>
-                  <button
-                    mat-button
-                    class="danger"
-                    (click)="deleteStep(workflow, step)"
-                    [disabled]="busy()"
-                  >
-                    Delete
-                  </button>
-                </span>
-              }
-            </mat-list-item>
-            @if (editingDependencies() === step.id) {
-              <app-dependency-picker
-                [workflowId]="workflow.id"
-                [steps]="workflow.steps"
-                [step]="step"
-                (saved)="dependenciesSaved(workflow, step, $event)"
-                (cancelled)="editingDependencies.set(null)"
-              />
+      <mat-tab-group class="workflow-tabs" animationDuration="0ms">
+        <mat-tab label="Steps ({{ workflow.steps.length }}/{{ maxSteps }})">
+          <header class="section-header">
+            <h2>Steps</h2>
+            @if (workflow.status !== 'ARCHIVED' && workflow.steps.length < maxSteps) {
+              <a mat-flat-button [routerLink]="['/workflows', workflow.id, 'steps', 'new']"
+                >Add step</a
+              >
             }
+          </header>
+
+          @if (error(); as error) {
+            <p class="page-error" role="alert">{{ error }}</p>
           }
-        </mat-list>
-      }
+
+          @if (workflow.steps.length === 0) {
+            <p class="empty">No steps yet. Add an HTTP call or a delay to get started.</p>
+          } @else {
+            <mat-list>
+              @for (step of workflow.steps; track step.id) {
+                <mat-list-item class="step">
+                  <span matListItemTitle>
+                    <code>{{ step.key }}</code> · {{ step.name }}
+                    <span class="job-type">{{ step.jobType }}</span>
+                  </span>
+                  <span matListItemLine>{{ summary(step) }}</span>
+                  <span matListItemLine class="dependencies">{{
+                    dependenciesText(workflow, step)
+                  }}</span>
+                  <span matListItemLine class="limits">
+                    timeout {{ step.timeoutSeconds }} s · {{ step.maxAttempts }} attempts · retry
+                    delay {{ step.retryDelaySeconds }} s
+                  </span>
+                  @if (workflow.status !== 'ARCHIVED') {
+                    <span matListItemMeta class="step-actions">
+                      <button
+                        mat-button
+                        class="edit-dependencies"
+                        (click)="editingDependencies.set(step.id)"
+                      >
+                        Dependencies
+                      </button>
+                      <a
+                        mat-button
+                        [routerLink]="['/workflows', workflow.id, 'steps', step.id, 'edit']"
+                      >
+                        Edit
+                      </a>
+                      <button
+                        mat-button
+                        class="danger"
+                        (click)="deleteStep(workflow, step)"
+                        [disabled]="busy()"
+                      >
+                        Delete
+                      </button>
+                    </span>
+                  }
+                </mat-list-item>
+                @if (editingDependencies() === step.id) {
+                  <app-dependency-picker
+                    [workflowId]="workflow.id"
+                    [steps]="workflow.steps"
+                    [step]="step"
+                    (saved)="dependenciesSaved(workflow, step, $event)"
+                    (cancelled)="editingDependencies.set(null)"
+                  />
+                }
+              }
+            </mat-list>
+          }
+        </mat-tab>
+        <mat-tab label="Schedules">
+          <ng-template matTabContent>
+            <app-schedule-list [workflowId]="workflow.id" [workflowStatus]="workflow.status" />
+          </ng-template>
+        </mat-tab>
+      </mat-tab-group>
     } @else if (error(); as error) {
       <p class="page-error" role="alert">{{ error }}</p>
     } @else {
