@@ -29,6 +29,7 @@ import com.flowforge.entity.TriggerType;
 import com.flowforge.entity.Workflow;
 import com.flowforge.entity.WorkflowDependency;
 import com.flowforge.entity.WorkflowExecution;
+import com.flowforge.entity.WorkflowSchedule;
 import com.flowforge.entity.WorkflowStep;
 import com.flowforge.exception.ConflictException;
 import com.flowforge.exception.ErrorCode;
@@ -92,20 +93,35 @@ public class ExecutionService {
         if (!workflow.isActive()) {
             throw new ConflictException(ErrorCode.INVALID_STATE, "Only active workflows can be run");
         }
+        JsonNode executionInput = input != null ? input : JsonNodeFactory.instance.objectNode();
+        WorkflowExecution execution = createExecution(workflow, TriggerType.MANUAL, userId, null, null, dedupKey,
+                executionInput);
+        return new StartResult(toResponse(execution, workflow.getName()), true);
+    }
 
-        List<WorkflowStep> workflowSteps = steps.findAllByWorkflowIdOrderById(workflowId);
-        List<WorkflowDependency> edges = dependencies.findAllByWorkflowId(workflowId);
+    public WorkflowExecution startScheduled(Workflow lockedWorkflow, WorkflowSchedule schedule, Instant dueAt) {
+        return createExecution(lockedWorkflow, TriggerType.SCHEDULE, null, schedule.getId(), dueAt,
+                "schedule:" + schedule.getId() + ":" + dueAt, schedule.getInput());
+    }
+
+    public boolean hasRunningExecution(Long workflowId) {
+        return executions.existsByWorkflowIdAndStatus(workflowId, ExecutionStatus.RUNNING);
+    }
+
+    private WorkflowExecution createExecution(Workflow workflow, TriggerType triggerType, Long triggeredBy,
+            Long scheduleId, Instant scheduledFor, String dedupKey, JsonNode input) {
+        List<WorkflowStep> workflowSteps = steps.findAllByWorkflowIdOrderById(workflow.getId());
+        List<WorkflowDependency> edges = dependencies.findAllByWorkflowId(workflow.getId());
         List<ValidationProblem> problems =
                 validator.validate(workflowSteps, DependencyService.graphOf(workflowSteps, edges));
         if (!problems.isEmpty()) {
             throw new WorkflowInvalidException(problems);
         }
 
-        int runNumber = workflows.nextRunNumber(workflowId);
+        int runNumber = workflows.nextRunNumber(workflow.getId());
         Instant now = executions.databaseNow();
-        JsonNode executionInput = input != null ? input : JsonNodeFactory.instance.objectNode();
-        WorkflowExecution execution = executions.saveAndFlush(new WorkflowExecution(
-                workflowId, runNumber, TriggerType.MANUAL, userId, dedupKey, executionInput, now));
+        WorkflowExecution execution = executions.saveAndFlush(new WorkflowExecution(workflow.getId(), runNumber,
+                triggerType, triggeredBy, scheduleId, scheduledFor, dedupKey, input, now));
 
         Map<Long, List<String>> dependsOnByStep = dependencyKeysByStep(workflowSteps, edges);
         for (WorkflowStep step : workflowSteps) {
@@ -117,7 +133,7 @@ public class ExecutionService {
                     now));
         }
         jobs.flush();
-        return new StartResult(toResponse(execution, workflow.getName()), true);
+        return execution;
     }
 
     @Transactional(readOnly = true)

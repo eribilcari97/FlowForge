@@ -45,3 +45,7 @@ flowforge:
     enabled: true
     interval: 30s
     batch-size: 50
+  scheduler:
+    enabled: true
+    interval: 15s
+    max-runs-per-tick: 100

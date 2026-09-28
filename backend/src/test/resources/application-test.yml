@@ -6,3 +6,5 @@ flowforge:
     enabled: false
   recovery:
     enabled: false
+  scheduler:
+    enabled: false

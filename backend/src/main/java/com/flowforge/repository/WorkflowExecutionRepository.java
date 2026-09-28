@@ -26,6 +26,8 @@ public interface WorkflowExecutionRepository extends Repository<WorkflowExecutio
 
     boolean existsByWorkflowId(Long workflowId);
 
+    boolean existsByWorkflowIdAndStatus(Long workflowId, ExecutionStatus status);
+
     @Query("""
            select e from WorkflowExecution e, Workflow w, Project p
            where e.id = :id and w.id = e.workflowId and p.id = w.projectId and p.ownerId = :ownerId

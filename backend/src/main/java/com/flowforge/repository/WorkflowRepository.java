@@ -32,6 +32,10 @@ public interface WorkflowRepository extends Repository<Workflow, Long> {
            """)
     Optional<Workflow> findOwnedForUpdate(Long id, Long ownerId);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select w from Workflow w where w.id = :id")
+    Optional<Workflow> lockById(Long id);
+
     @Query("select w from Workflow w where w.projectId = :projectId order by lower(w.name)")
     List<Workflow> findAllInProject(Long projectId);
 

@@ -420,7 +420,9 @@ Jobs that haven't started become `CANCELLED` immediately. A job currently runnin
   "nextRunAt": "2026-09-28T06:00:00Z", "lastRunAt": null }
 ```
 
-**400** (invalid cron or zone) · **404**
+**400** (invalid cron or zone) · **404** · **409** `INVALID_STATE` (archived workflow)
+
+`input` is optional (`{}`) and must be a JSON object. `enabled` is optional (`true`). `nextRunAt` is recalculated from the current time on every create and update, and it is `null` while the schedule is paused. The response also contains `workflowId`.
 
 - `GET /api/workflows/{workflowId}/schedules` → **200** array
 - `PUT /api/workflows/{workflowId}/schedules/{scheduleId}` (same body; `enabled: false` pauses the schedule) → **200** · **400** · **404**

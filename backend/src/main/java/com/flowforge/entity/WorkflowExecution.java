@@ -42,6 +42,12 @@ public class WorkflowExecution {
     @Column(name = "dedup_key", updatable = false)
     private String dedupKey;
 
+    @Column(name = "schedule_id", updatable = false)
+    private Long scheduleId;
+
+    @Column(name = "scheduled_for", updatable = false)
+    private Instant scheduledFor;
+
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(nullable = false, updatable = false)
     private JsonNode input;
@@ -59,12 +65,14 @@ public class WorkflowExecution {
     }
 
     public WorkflowExecution(Long workflowId, int runNumber, TriggerType triggerType, Long triggeredBy,
-            String dedupKey, JsonNode input, Instant createdAt) {
+            Long scheduleId, Instant scheduledFor, String dedupKey, JsonNode input, Instant createdAt) {
         this.workflowId = workflowId;
         this.runNumber = runNumber;
         this.status = ExecutionStatus.RUNNING;
         this.triggerType = triggerType;
         this.triggeredBy = triggeredBy;
+        this.scheduleId = scheduleId;
+        this.scheduledFor = scheduledFor;
         this.dedupKey = dedupKey;
         this.input = input;
         this.createdAt = createdAt;
@@ -105,6 +113,14 @@ public class WorkflowExecution {
 
     public String getDedupKey() {
         return dedupKey;
+    }
+
+    public Long getScheduleId() {
+        return scheduleId;
+    }
+
+    public Instant getScheduledFor() {
+        return scheduledFor;
     }
 
     public JsonNode getInput() {

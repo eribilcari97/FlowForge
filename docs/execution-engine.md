@@ -445,7 +445,13 @@ FOR UPDATE OF s SKIP LOCKED;
 **No duplicates:** two instances can't process the same schedule at once (`SKIP LOCKED`), and even if something went wrong, the unique `dedup_key` rejects a second execution for the same due time.
 **After downtime:** the stored due time fires once (one catch-up run), and the next time is computed from *now*, so missed runs aren't replayed one by one.
 **Why not Spring `@Scheduled(cron = …)` per workflow?** Those cron expressions are fixed when the app starts, would fire in every instance, and forget everything on restart. User schedules are data, so they live in the database.
-⚠ *To test explicitly:* daylight-saving transitions (a job at 02:30 local time on the day clocks change).
+**Daylight-saving transitions (tested).** Next run times are calculated on the local wall clock of the schedule's time zone, and each wall-clock time fires at most once. Used directly on zoned times, Spring's `CronExpression` would skip a daily 02:30 run on the day clocks go forward and fire it twice on the day they go back. In FlowForge:
+
+- A time that doesn't exist that day (02:30 when clocks jump from 02:00 to 03:00) runs one hour later, at 03:30.
+- A time that happens twice (02:30 when clocks go back from 03:00 to 02:00) runs once, at the first occurrence.
+- A schedule that fires more often than hourly skips the repeated hour once a year, because its wall-clock times already fired.
+
+**A workflow that became invalid** while `ACTIVE` (edits are allowed) can't start a scheduled run. The run is skipped and logged, and the schedule moves on to its next time.
 
 ---
 
