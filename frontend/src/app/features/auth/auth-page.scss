@@ -1,17 +1,57 @@
 :host {
   display: block;
-  max-width: 420px;
-  margin: 48px auto 0;
+  max-width: 920px;
+  margin: 24px auto 0;
+}
+
+.auth {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  overflow: hidden;
+  background: var(--ff-panel);
+  border: 1px solid var(--ff-rule);
+  border-radius: 12px;
+
+  @media (max-width: 760px) {
+    grid-template-columns: minmax(0, 1fr);
+
+    app-auth-intro {
+      order: 2;
+    }
+  }
+}
+
+.auth-form {
+  padding: 32px;
+
+  h1 {
+    margin-bottom: 24px;
+  }
 }
 
 form {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  padding-top: 16px;
+}
+
+.submit {
+  align-self: flex-start;
+  min-width: 140px;
 }
 
 .form-error {
-  color: var(--mat-sys-error);
   margin: 0 0 12px;
+}
+
+.switch {
+  margin: 24px 0 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--ff-rule);
+  color: var(--ff-ink-2);
+  font-size: 0.875rem;
+
+  a {
+    font-weight: 600;
+  }
 }

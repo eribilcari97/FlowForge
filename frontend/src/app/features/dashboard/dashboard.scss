@@ -1,42 +1,142 @@
 :host {
   display: block;
-  max-width: 1100px;
+  max-width: 1200px;
   margin: 0 auto;
 }
 
-.page-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+.pulse-line {
+  font-size: 1rem;
 }
 
-.cards {
+.ops {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 16px;
-}
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  grid-template-areas:
+    'running upcoming'
+    'failures upcoming';
+  gap: 20px;
+  align-items: start;
 
-.row-link {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 8px 0;
-  color: inherit;
-  text-decoration: none;
-  border-bottom: 1px solid var(--mat-sys-outline-variant);
-
-  &:hover {
-    color: var(--mat-sys-primary);
+  @media (max-width: 900px) {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: 'running' 'failures' 'upcoming';
   }
 }
 
-.meta,
-.empty,
-.refresh-note {
-  color: var(--mat-sys-on-surface-variant);
-  font: var(--mat-sys-body-small);
+.running {
+  grid-area: running;
 }
 
-.page-error {
-  color: var(--mat-sys-error);
+.failures {
+  grid-area: failures;
+}
+
+.upcoming {
+  grid-area: upcoming;
+}
+
+.lane {
+  background: var(--ff-panel);
+  border: 1px solid var(--ff-rule);
+  border-top: 4px solid var(--status, var(--ff-ink));
+  border-radius: var(--ff-radius);
+  overflow: hidden;
+
+  > header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 16px 12px;
+    border-bottom: 1px solid var(--ff-rule);
+  }
+
+  h2 {
+    font-size: 1rem;
+  }
+
+  .total {
+    color: var(--status-ink, var(--ff-ink-2));
+    font-size: 0.8125rem;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .empty {
+    margin: 0;
+    padding: 18px 16px;
+  }
+}
+
+.run-meta.error {
+  color: var(--ff-fail-ink);
+}
+
+.more {
+  display: block;
+  padding: 10px 16px;
+  border-top: 1px solid var(--ff-rule);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.timeline {
+  margin: 0;
+  padding: 8px 16px 16px;
+  list-style: none;
+
+  li {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 10px 0 10px 20px;
+    border-left: 1.5px solid var(--ff-rule);
+
+    &::before {
+      content: '';
+      position: absolute;
+      left: -5px;
+      top: 15px;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--ff-panel);
+      box-shadow: inset 0 0 0 1.5px var(--ff-ink);
+    }
+
+    &.empty {
+      border-left: 0;
+      padding-left: 0;
+
+      &::before {
+        display: none;
+      }
+    }
+  }
+
+  .when {
+    color: var(--ff-ink-2);
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+
+  a {
+    font-weight: 600;
+    text-decoration: none;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+
+  .run-meta {
+    color: var(--ff-ink-2);
+    font-size: 0.8125rem;
+  }
+
+  code {
+    margin-left: 6px;
+    font-size: 0.75rem;
+  }
 }

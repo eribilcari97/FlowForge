@@ -1,7 +1,6 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
-import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -11,56 +10,45 @@ import { Workflow, WorkflowService } from './workflow.service';
 
 @Component({
   selector: 'app-workflow-form',
-  imports: [
-    ReactiveFormsModule,
-    RouterLink,
-    MatButtonModule,
-    MatCardModule,
-    MatFormFieldModule,
-    MatInputModule,
-  ],
+  imports: [ReactiveFormsModule, RouterLink, MatButtonModule, MatFormFieldModule, MatInputModule],
   styleUrl: './workflows.scss',
   template: `
-    <mat-card appearance="outlined" class="form-card">
-      <mat-card-header>
-        <mat-card-title>{{ workflowId ? 'Edit workflow' : 'New workflow' }}</mat-card-title>
-      </mat-card-header>
-      <mat-card-content>
-        @if (notFound()) {
-          <p class="page-error" role="alert">Workflow not found.</p>
-        } @else {
-          <form [formGroup]="form" (ngSubmit)="submit()">
-            <mat-form-field>
-              <mat-label>Name</mat-label>
-              <input matInput formControlName="name" />
-              @if (form.controls.name.hasError('required')) {
-                <mat-error>Name is required</mat-error>
-              }
-              @if (form.controls.name.hasError('maxlength')) {
-                <mat-error>At most 100 characters</mat-error>
-              }
-              @if (form.controls.name.hasError('duplicate')) {
-                <mat-error>This project already has a workflow with this name</mat-error>
-              }
-            </mat-form-field>
-            <mat-form-field>
-              <mat-label>Description</mat-label>
-              <textarea matInput formControlName="description" rows="3"></textarea>
-              @if (form.controls.description.hasError('maxlength')) {
-                <mat-error>At most 2000 characters</mat-error>
-              }
-            </mat-form-field>
-            @if (error(); as error) {
-              <p class="page-error" role="alert">{{ error }}</p>
+    <h1 class="form-title">{{ workflowId ? 'Edit workflow' : 'New workflow' }}</h1>
+    <div class="panel form-card">
+      @if (notFound()) {
+        <p class="page-error" role="alert">Workflow not found.</p>
+      } @else {
+        <form [formGroup]="form" (ngSubmit)="submit()">
+          <mat-form-field>
+            <mat-label>Name</mat-label>
+            <input matInput formControlName="name" />
+            @if (form.controls.name.hasError('required')) {
+              <mat-error>Name is required</mat-error>
             }
-            <div class="actions">
-              <a mat-button [routerLink]="cancelLink">Cancel</a>
-              <button mat-flat-button type="submit" [disabled]="saving()">Save</button>
-            </div>
-          </form>
-        }
-      </mat-card-content>
-    </mat-card>
+            @if (form.controls.name.hasError('maxlength')) {
+              <mat-error>At most 100 characters</mat-error>
+            }
+            @if (form.controls.name.hasError('duplicate')) {
+              <mat-error>This project already has a workflow with this name</mat-error>
+            }
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Description</mat-label>
+            <textarea matInput formControlName="description" rows="3"></textarea>
+            @if (form.controls.description.hasError('maxlength')) {
+              <mat-error>At most 2000 characters</mat-error>
+            }
+          </mat-form-field>
+          @if (error(); as error) {
+            <p class="page-error" role="alert">{{ error }}</p>
+          }
+          <div class="actions">
+            <a mat-button [routerLink]="cancelLink">Cancel</a>
+            <button mat-flat-button type="submit" [disabled]="saving()">Save</button>
+          </div>
+        </form>
+      }
+    </div>
   `,
 })
 export class WorkflowForm {

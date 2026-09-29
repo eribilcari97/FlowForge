@@ -45,9 +45,10 @@ const MAX_LABEL_LENGTH = 22;
               (click)="clickable() && nodeClick.emit(node.id)"
             >
               <title>{{ node.label }} · {{ node.detail }}</title>
-              <rect [attr.width]="node.width" [attr.height]="node.height" rx="8" />
-              <text x="12" y="23" class="graph-label">{{ shorten(node.label) }}</text>
-              <text x="12" y="42" class="graph-detail">{{ node.detail }}</text>
+              <rect class="body" [attr.width]="node.width" [attr.height]="node.height" rx="6" />
+              <rect class="strip" x="0" y="0" width="4" [attr.height]="node.height" rx="2" />
+              <text x="14" y="23" class="graph-label">{{ shorten(node.label) }}</text>
+              <text x="14" y="42" class="graph-detail">{{ node.detail }}</text>
             </g>
           }
         </svg>
@@ -55,69 +56,95 @@ const MAX_LABEL_LENGTH = 22;
     }
   `,
   styles: `
+    :host {
+      display: block;
+    }
+
     .graph-scroll {
       overflow-x: auto;
-      padding: 8px 0;
+      padding: 20px;
+      background-color: var(--ff-panel);
+      background-image: radial-gradient(var(--ff-rule) 1px, transparent 1px);
+      background-size: 16px 16px;
+      border: 1px solid var(--ff-rule);
+      border-radius: var(--ff-radius);
+    }
+
+    .graph {
+      display: block;
+      margin: 0 auto;
+      overflow: visible;
     }
 
     .graph-empty {
-      color: var(--mat-sys-on-surface-variant);
+      color: var(--ff-ink-2);
     }
 
     .graph-edge {
       fill: none;
-      stroke: var(--mat-sys-outline);
+      stroke: var(--ff-rule-strong);
       stroke-width: 1.5;
     }
 
     .graph-arrow {
-      fill: var(--mat-sys-outline);
+      fill: var(--ff-rule-strong);
     }
 
-    .graph-node rect {
-      fill: var(--mat-sys-surface-container);
-      stroke: var(--mat-sys-outline-variant);
-      stroke-width: 1.5;
+    .graph-node .body {
+      fill: var(--ff-panel);
+      stroke: var(--ff-rule-strong);
+      stroke-width: 1;
+    }
+
+    .graph-node .strip {
+      fill: var(--status, var(--ff-ink));
     }
 
     .graph-node.clickable {
       cursor: pointer;
     }
 
-    .graph-node.clickable:hover rect {
-      stroke: var(--mat-sys-primary);
+    .graph-node.clickable:hover .body {
+      stroke: var(--ff-ink);
+      stroke-width: 1.5;
     }
 
     .graph-label {
-      font: var(--mat-sys-label-large);
-      fill: var(--mat-sys-on-surface);
+      font: 500 12px var(--ff-mono);
+      fill: var(--ff-ink);
     }
 
     .graph-detail {
-      font: var(--mat-sys-label-small);
-      fill: var(--mat-sys-on-surface-variant);
+      font: 500 11px var(--ff-sans);
+      fill: var(--ff-ink-2);
     }
 
-    [data-status='SUCCEEDED'] rect {
-      fill: var(--mat-sys-tertiary-container);
-      stroke: var(--mat-sys-tertiary);
+    [data-status] .body {
+      fill: color-mix(in srgb, var(--status-wash) 55%, var(--ff-panel));
+      stroke: color-mix(in srgb, var(--status) 55%, var(--ff-panel));
     }
 
-    [data-status='RUNNING'] rect,
-    [data-status='READY'] rect {
-      fill: var(--mat-sys-primary-container);
-      stroke: var(--mat-sys-primary);
+    [data-status='RUNNING'] .body {
+      stroke: var(--ff-run);
+      stroke-width: 1.5;
+      animation: node-heat 1.6s ease-in-out infinite;
     }
 
-    [data-status='FAILED'] rect {
-      fill: var(--mat-sys-error-container);
-      stroke: var(--mat-sys-error);
-    }
-
-    [data-status='SKIPPED'] rect,
-    [data-status='CANCELLED'] rect {
-      fill: var(--mat-sys-surface-container-highest);
+    [data-status='SKIPPED'] .body,
+    [data-status='CANCELLED'] .body {
+      fill: var(--ff-sunken);
       stroke-dasharray: 4 3;
+    }
+
+    [data-status='SKIPPED'] .graph-label,
+    [data-status='CANCELLED'] .graph-label {
+      fill: var(--ff-ink-2);
+    }
+
+    @keyframes node-heat {
+      50% {
+        stroke-width: 4;
+      }
     }
   `,
 })

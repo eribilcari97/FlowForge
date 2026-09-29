@@ -1,100 +1,118 @@
 import { DatePipe, JsonPipe } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
-import { MatButtonModule } from '@angular/material/button';
-import { MatCardModule } from '@angular/material/card';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { interval, map, switchMap } from 'rxjs';
 
 import { problemOf } from '../../core/api/problem';
 import { StatusBadge } from '../../shared/status-badge';
+import { elapsedMs, formatDuration } from '../../shared/time';
 import { ExecutionService, JobDetail as Job } from './execution.service';
 import { retryCountdown, retryableLabel } from './job-status';
 
 @Component({
   selector: 'app-job-detail',
-  imports: [RouterLink, DatePipe, JsonPipe, MatButtonModule, MatCardModule, StatusBadge],
+  imports: [RouterLink, DatePipe, JsonPipe, StatusBadge],
   styleUrl: './executions.scss',
   template: `
     @if (notFound()) {
-      <a mat-button routerLink="/executions">← All executions</a>
-      <p class="page-error" role="alert">Job not found.</p>
+      <a class="crumb" routerLink="/executions">Runs</a>
+      <p class="alert" role="alert">Job not found.</p>
     } @else if (job(); as job) {
-      <a mat-button [routerLink]="['/executions', job.executionId]">← Execution</a>
+      <a class="crumb" [routerLink]="['/executions', job.executionId]">Run</a>
 
-      <mat-card appearance="outlined">
-        <mat-card-header>
-          <mat-card-title>
-            <code>{{ job.stepKey }}</code> · {{ job.stepName }}
-          </mat-card-title>
-          <mat-card-subtitle>
+      <header class="entity-header">
+        <div class="title">
+          <h1>
+            <code class="step-key">{{ job.stepKey }}</code> {{ job.stepName }}
+          </h1>
+          <div class="entity-meta">
             <app-status-badge [status]="job.status" />
-            {{ job.jobType }} · attempt {{ job.attemptCount }} of {{ job.maxAttempts }} · timeout
-            {{ job.timeoutSeconds }} s
-            @if (countdown(job); as countdown) {
-              · <span class="retry-countdown">{{ countdown }}</span>
+            <span>{{ job.jobType }}</span>
+            <span>attempt {{ job.attemptCount }} of {{ job.maxAttempts }}</span>
+            <span>timeout {{ job.timeoutSeconds }} s</span>
+            @if (job.startedAt) {
+              <span
+                >{{ job.finishedAt ? 'took' : 'running for' }}
+                {{ duration(job.startedAt, job.finishedAt) }}</span
+              >
             }
-          </mat-card-subtitle>
-        </mat-card-header>
-        <mat-card-content>
+            @if (countdown(job); as countdown) {
+              <span class="retry-countdown">{{ countdown }}</span>
+            }
+          </div>
           @if (job.dependsOn.length) {
-            <p>Waits for: {{ job.dependsOn.join(', ') }}</p>
+            <p class="description">Waits for {{ job.dependsOn.join(', ') }}</p>
           }
-          @if (job.lastError) {
-            <p class="page-error last-error">{{ job.lastError }}</p>
-          }
-          <h3>Output</h3>
+        </div>
+      </header>
+
+      @if (job.lastError) {
+        <p class="alert last-error">{{ job.lastError }}</p>
+      }
+
+      <div class="io">
+        <section aria-labelledby="output-title">
+          <h2 id="output-title">Output</h2>
           @if (job.output !== null && job.output !== undefined) {
             <pre class="json output">{{ job.output | json }}</pre>
           } @else {
             <p class="empty">No output yet.</p>
           }
-          <h3>Configuration used by this run</h3>
+        </section>
+        <section aria-labelledby="config-title">
+          <h2 id="config-title">Configuration used by this run</h2>
           <pre class="json">{{ job.config | json }}</pre>
-        </mat-card-content>
-      </mat-card>
+        </section>
+      </div>
 
-      <h2>Attempts</h2>
+      <header class="section-header">
+        <h2>Attempts</h2>
+      </header>
       @if (job.attempts.length === 0) {
         <p class="empty">Not started yet.</p>
       } @else {
-        <table class="attempts">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Status</th>
-              <th>Started</th>
-              <th>Finished</th>
-              <th>Worker</th>
-              <th>Error</th>
-              <th>Retry?</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (attempt of job.attempts; track attempt.number) {
+        <div class="table-scroll">
+          <table class="attempts">
+            <thead>
               <tr>
-                <td>{{ attempt.number }}</td>
-                <td><app-status-badge [status]="attempt.status" /></td>
-                <td>{{ attempt.startedAt | date: 'mediumTime' }}</td>
-                <td>{{ attempt.finishedAt ? (attempt.finishedAt | date: 'mediumTime') : '—' }}</td>
-                <td>{{ attempt.workerId }}</td>
-                <td>
-                  @if (attempt.errorType) {
-                    <code>{{ attempt.errorType }}</code> {{ attempt.errorMessage }}
-                  } @else {
-                    —
-                  }
-                </td>
-                <td class="retryable">{{ retryable(attempt.retryable) }}</td>
+                <th>#</th>
+                <th>Status</th>
+                <th>Started</th>
+                <th>Duration</th>
+                <th>Worker</th>
+                <th>Error</th>
+                <th>Retry?</th>
               </tr>
-            }
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              @for (attempt of job.attempts; track attempt.number) {
+                <tr>
+                  <td class="rail" [attr.data-status]="attempt.status">{{ attempt.number }}</td>
+                  <td><app-status-badge [status]="attempt.status" /></td>
+                  <td>{{ attempt.startedAt | date: 'mediumTime' }}</td>
+                  <td>{{ duration(attempt.startedAt, attempt.finishedAt) }}</td>
+                  <td>
+                    <code>{{ attempt.workerId }}</code>
+                  </td>
+                  <td [class.error-cell]="attempt.errorType">
+                    @if (attempt.errorType) {
+                      <code>{{ attempt.errorType }}</code> {{ attempt.errorMessage }}
+                    } @else {
+                      —
+                    }
+                  </td>
+                  <td class="retryable">{{ retryable(attempt.retryable) }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
       }
     } @else if (error(); as error) {
-      <p class="page-error" role="alert">{{ error }}</p>
+      <p class="alert" role="alert">{{ error }}</p>
     } @else {
-      <p>Loading…</p>
+      <p class="muted">Loading job…</p>
     }
   `,
 })
@@ -110,6 +128,11 @@ export class JobDetail {
 
   protected countdown(job: Job): string | null {
     return retryCountdown(job, this.now());
+  }
+
+  protected duration(start: string, end: string | null): string {
+    const ms = formatDuration(elapsedMs(start, end, this.now()) ?? 0);
+    return end ? ms : `${ms} so far`;
   }
 
   protected retryable(value: boolean | null): string {

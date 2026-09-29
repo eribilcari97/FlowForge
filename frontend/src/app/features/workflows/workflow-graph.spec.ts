@@ -1,4 +1,9 @@
-import { dependencyCandidates, dependencyKeys, descendantIds } from './workflow-graph';
+import {
+  dependencyCandidates,
+  dependencyKeys,
+  descendantIds,
+  executionStages,
+} from './workflow-graph';
 import { Step } from './workflow.service';
 
 function step(id: number, key: string, dependsOn: number[] = []): Step {
@@ -39,5 +44,11 @@ describe('workflow graph helpers', () => {
   it('names the dependencies of a step by key', () => {
     expect(dependencyKeys(diamond, diamond[3])).toEqual(['b', 'c']);
     expect(dependencyKeys(diamond, diamond[0])).toEqual([]);
+  });
+
+  it('groups steps into stages that can run in parallel', () => {
+    const keys = executionStages(diamond).map((stage) => stage.map((s) => s.key));
+
+    expect(keys).toEqual([['a', 'e'], ['b', 'c'], ['d']]);
   });
 });

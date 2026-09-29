@@ -47,7 +47,12 @@ export interface RunDialogData {
   styles: `
     .input-field {
       width: 100%;
-      min-width: 420px;
+      min-width: min(460px, 70vw);
+    }
+
+    .input-field textarea {
+      font-family: var(--ff-mono);
+      font-size: 0.8125rem;
     }
 
     .dialog-error {

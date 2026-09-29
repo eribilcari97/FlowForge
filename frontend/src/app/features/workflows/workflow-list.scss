@@ -1,0 +1,27 @@
+:host {
+  display: block;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.status-filter {
+  margin-bottom: 8px;
+  font-size: 0.8125rem;
+}
+
+.project-group .section-header {
+  margin-top: 28px;
+
+  h2 a {
+    text-decoration: none;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+}
+
+.add-link {
+  font-size: 0.8125rem;
+  font-weight: 600;
+}

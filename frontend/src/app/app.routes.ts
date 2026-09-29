@@ -40,6 +40,16 @@ export const routes: Routes = [
           import('./features/workflows/workflow-form').then((m) => m.WorkflowForm),
       },
       {
+        path: 'workflows',
+        loadComponent: () =>
+          import('./features/workflows/workflow-list').then((m) => m.WorkflowList),
+      },
+      {
+        path: 'workflows/new',
+        loadComponent: () =>
+          import('./features/workflows/workflow-create').then((m) => m.WorkflowCreate),
+      },
+      {
         path: 'workflows/:id',
         loadComponent: () =>
           import('./features/workflows/workflow-page').then((m) => m.WorkflowPage),

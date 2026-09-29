@@ -1,13 +1,13 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
-import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 
 import { problemOf } from '../../core/api/problem';
 import { AuthService } from '../../core/auth/auth.service';
+import { AuthIntro } from './auth-intro';
 import { safeReturnUrl } from './return-url';
 
 @Component({
@@ -15,18 +15,17 @@ import { safeReturnUrl } from './return-url';
   imports: [
     ReactiveFormsModule,
     RouterLink,
-    MatCardModule,
+    AuthIntro,
     MatFormFieldModule,
     MatInputModule,
     MatButtonModule,
   ],
   styleUrl: './auth-page.scss',
   template: `
-    <mat-card appearance="outlined">
-      <mat-card-header>
-        <mat-card-title>Create an account</mat-card-title>
-      </mat-card-header>
-      <mat-card-content>
+    <div class="auth">
+      <app-auth-intro />
+      <section class="auth-form">
+        <h1>Create an account</h1>
         <form [formGroup]="form" (ngSubmit)="submit()">
           <mat-form-field>
             <mat-label>Email</mat-label>
@@ -58,15 +57,16 @@ import { safeReturnUrl } from './return-url';
           @for (message of errors(); track message) {
             <p class="form-error" role="alert">{{ message }}</p>
           }
-          <button mat-flat-button type="submit" [disabled]="submitting()">Create account</button>
+          <button mat-flat-button class="submit" type="submit" [disabled]="submitting()">
+            Create account
+          </button>
         </form>
-      </mat-card-content>
-      <mat-card-actions>
-        <a mat-button routerLink="/login" queryParamsHandling="preserve"
-          >I already have an account</a
-        >
-      </mat-card-actions>
-    </mat-card>
+        <p class="switch">
+          Already have an account?
+          <a routerLink="/login" queryParamsHandling="preserve">Log in</a>
+        </p>
+      </section>
+    </div>
   `,
 })
 export class Register {

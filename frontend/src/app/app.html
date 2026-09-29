@@ -1,21 +1,34 @@
-<mat-toolbar>
-  <a class="brand" routerLink="/">FlowForge</a>
+<header class="shell">
+  <a class="brand" routerLink="/">
+    <svg class="mark" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+      <path d="M6 12 L18 5 M6 12 L18 19" />
+      <circle cx="6" cy="12" r="3.25" />
+      <circle cx="18" cy="5" r="3.25" class="hot" />
+      <circle cx="18" cy="19" r="3.25" />
+    </svg>
+    FlowForge
+  </a>
   @if (auth.user()) {
-    <nav class="nav">
-      <a mat-button routerLink="/dashboard">Dashboard</a>
-      <a mat-button routerLink="/projects">Projects</a>
-      <a mat-button routerLink="/executions">Executions</a>
+    <nav class="nav" aria-label="Main">
+      <a routerLink="/dashboard" routerLinkActive="active" ariaCurrentWhenActive="page"
+        >Workspace</a
+      >
+      <a routerLink="/workflows" routerLinkActive="active" ariaCurrentWhenActive="page"
+        >Workflows</a
+      >
+      <a routerLink="/executions" routerLinkActive="active" ariaCurrentWhenActive="page">Runs</a>
     </nav>
   }
   <span class="spacer"></span>
   <span class="backend-status" [attr.data-status]="backendStatus() ?? 'CHECKING'">
+    <span class="lamp" aria-hidden="true"></span>
     Backend: {{ backendStatus() ?? 'checking…' }}
   </span>
   @if (auth.user(); as user) {
     <span class="user">{{ user.displayName }}</span>
-    <button mat-button class="logout" (click)="auth.logout()">Log out</button>
+    <button type="button" class="logout" (click)="auth.logout()">Log out</button>
   }
-</mat-toolbar>
+</header>
 
 <main>
   <router-outlet />

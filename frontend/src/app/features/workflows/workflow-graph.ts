@@ -25,3 +25,33 @@ export function dependencyKeys(steps: Step[], step: Step): string[] {
     .map((id) => steps.find((candidate) => candidate.id === id)?.key)
     .filter((key): key is string => key !== undefined);
 }
+
+export function executionStages<T extends { id: number; dependsOn: number[] }>(steps: T[]): T[][] {
+  const byId = new Map(steps.map((step) => [step.id, step]));
+  const stageOf = new Map<number, number>();
+  const visiting = new Set<number>();
+
+  const stage = (step: T): number => {
+    const known = stageOf.get(step.id);
+    if (known !== undefined) {
+      return known;
+    }
+    if (visiting.has(step.id)) {
+      return 0;
+    }
+    visiting.add(step.id);
+    const upstream = step.dependsOn
+      .map((id) => byId.get(id))
+      .filter((candidate): candidate is T => candidate !== undefined);
+    const result = upstream.length === 0 ? 0 : 1 + Math.max(...upstream.map(stage));
+    visiting.delete(step.id);
+    stageOf.set(step.id, result);
+    return result;
+  };
+
+  const stages: T[][] = [];
+  for (const step of steps) {
+    (stages[stage(step)] ??= []).push(step);
+  }
+  return stages.filter((group) => group !== undefined);
+}

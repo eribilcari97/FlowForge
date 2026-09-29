@@ -1,37 +1,54 @@
 import { Component, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
-import { MatListModule } from '@angular/material/list';
 import { RouterLink } from '@angular/router';
 
 import { Project, ProjectService } from './project.service';
 
 @Component({
   selector: 'app-project-list',
-  imports: [RouterLink, MatButtonModule, MatListModule],
+  imports: [RouterLink, MatButtonModule],
   styleUrl: './projects.scss',
   template: `
+    <a class="crumb" routerLink="/workflows">Workflows</a>
     <header class="page-header">
-      <h1>Projects</h1>
+      <div>
+        <h1>Projects</h1>
+        <p class="description">
+          Projects group related workflows. Every workflow belongs to one project.
+        </p>
+      </div>
       <a mat-flat-button routerLink="/projects/new">New project</a>
     </header>
 
     @if (error()) {
-      <p class="page-error" role="alert">Projects could not be loaded.</p>
+      <p class="alert" role="alert">Projects could not be loaded. Refresh the page to try again.</p>
     } @else if (projects(); as projects) {
       @if (projects.length === 0) {
-        <p class="empty">You don't have any projects yet. Create one to group your workflows.</p>
+        <div class="panel blank">
+          <h2>No projects yet</h2>
+          <p class="description">
+            Creating your first workflow sets up a project for it, or you can create one first.
+          </p>
+          <a mat-flat-button routerLink="/workflows/new">Create workflow</a>
+        </div>
       } @else {
-        <mat-nav-list>
+        <ul class="panel run-list">
           @for (project of projects; track project.id) {
-            <a mat-list-item [routerLink]="['/projects', project.id]">
-              <span matListItemTitle>{{ project.name }}</span>
-              <span matListItemLine>{{ project.description || 'No description' }}</span>
-            </a>
+            <li>
+              <a class="run-row project-row" [routerLink]="['/projects', project.id]">
+                <span class="run-title">{{ project.name }}</span>
+                <span class="run-meta">{{ project.description || 'No description' }}</span>
+                <span class="count"
+                  >{{ project.workflowCount }}
+                  {{ project.workflowCount === 1 ? 'workflow' : 'workflows' }}</span
+                >
+              </a>
+            </li>
           }
-        </mat-nav-list>
+        </ul>
       }
     } @else {
-      <p>Loading…</p>
+      <p class="muted">Loading projects…</p>
     }
   `,
 })

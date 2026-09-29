@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, input, signal } from '@angular/core';
+import { Component, OnInit, inject, input, output, signal } from '@angular/core';
 import { AbstractControl, FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
@@ -39,49 +39,61 @@ import { Schedule, ScheduleRequest, ScheduleService } from './schedule.service';
     @if (schedules().length === 0) {
       <p class="empty">No schedules yet.</p>
     } @else {
-      <table class="schedules">
-        <thead>
-          <tr>
-            <th>When</th>
-            <th>Time zone</th>
-            <th>Next run</th>
-            <th>Last run</th>
-            <th>State</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (schedule of schedules(); track schedule.id) {
+      <div class="table-scroll">
+        <table class="schedules">
+          <thead>
             <tr>
-              <td>
-                <code>{{ schedule.cronExpression }}</code>
-                @if (label(schedule.cronExpression); as label) {
-                  <div class="limits">{{ label }}</div>
-                }
-              </td>
-              <td>{{ schedule.timezone }}</td>
-              <td class="next-run">
-                {{ schedule.nextRunAt ? inZone(schedule.nextRunAt, schedule.timezone) : '—' }}
-              </td>
-              <td>
-                {{ schedule.lastRunAt ? inZone(schedule.lastRunAt, schedule.timezone) : '—' }}
-              </td>
-              <td><app-status-badge [status]="schedule.enabled ? 'ENABLED' : 'PAUSED'" /></td>
-              <td class="step-actions">
-                @if (!readOnly()) {
-                  <button mat-button class="toggle" (click)="toggle(schedule)" [disabled]="busy()">
-                    {{ schedule.enabled ? 'Pause' : 'Resume' }}
-                  </button>
-                  <button mat-button (click)="edit(schedule)">Edit</button>
-                  <button mat-button class="danger" (click)="remove(schedule)" [disabled]="busy()">
-                    Delete
-                  </button>
-                }
-              </td>
+              <th>When</th>
+              <th>Time zone</th>
+              <th>Next run</th>
+              <th>Last run</th>
+              <th>State</th>
+              <th></th>
             </tr>
-          }
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            @for (schedule of schedules(); track schedule.id) {
+              <tr>
+                <td>
+                  <code>{{ schedule.cronExpression }}</code>
+                  @if (label(schedule.cronExpression); as label) {
+                    <div class="limits">{{ label }}</div>
+                  }
+                </td>
+                <td>{{ schedule.timezone }}</td>
+                <td class="next-run">
+                  {{ schedule.nextRunAt ? inZone(schedule.nextRunAt, schedule.timezone) : '—' }}
+                </td>
+                <td>
+                  {{ schedule.lastRunAt ? inZone(schedule.lastRunAt, schedule.timezone) : '—' }}
+                </td>
+                <td><app-status-badge [status]="schedule.enabled ? 'ENABLED' : 'PAUSED'" /></td>
+                <td class="step-actions">
+                  @if (!readOnly()) {
+                    <button
+                      mat-button
+                      class="toggle"
+                      (click)="toggle(schedule)"
+                      [disabled]="busy()"
+                    >
+                      {{ schedule.enabled ? 'Pause' : 'Resume' }}
+                    </button>
+                    <button mat-button (click)="edit(schedule)">Edit</button>
+                    <button
+                      mat-button
+                      class="danger"
+                      (click)="remove(schedule)"
+                      [disabled]="busy()"
+                    >
+                      Delete
+                    </button>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
     }
 
     @if (!readOnly()) {
@@ -130,6 +142,7 @@ export class ScheduleList implements OnInit {
 
   readonly workflowId = input.required<number>();
   readonly workflowStatus = input.required<WorkflowStatus>();
+  readonly changed = output<Schedule[]>();
 
   protected readonly presets = CRON_PRESETS;
   protected readonly schedules = signal<Schedule[]>([]);
@@ -225,7 +238,7 @@ export class ScheduleList implements OnInit {
       .subscribe({
         next: (updated) => {
           this.busy.set(false);
-          this.schedules.set(this.schedules().map((s) => (s.id === updated.id ? updated : s)));
+          this.setSchedules(this.schedules().map((s) => (s.id === updated.id ? updated : s)));
         },
         error: (error: unknown) => {
           this.busy.set(false);
@@ -242,7 +255,7 @@ export class ScheduleList implements OnInit {
     this.scheduleService.delete(this.workflowId(), schedule.id).subscribe({
       next: () => {
         this.busy.set(false);
-        this.schedules.set(this.schedules().filter((s) => s.id !== schedule.id));
+        this.setSchedules(this.schedules().filter((s) => s.id !== schedule.id));
       },
       error: (error: unknown) => {
         this.busy.set(false);
@@ -264,9 +277,14 @@ export class ScheduleList implements OnInit {
 
   private load(): void {
     this.scheduleService.list(this.workflowId()).subscribe({
-      next: (schedules) => this.schedules.set(schedules),
+      next: (schedules) => this.setSchedules(schedules),
       error: () => this.error.set('Schedules could not be loaded.'),
     });
+  }
+
+  private setSchedules(schedules: Schedule[]): void {
+    this.schedules.set(schedules);
+    this.changed.emit(schedules);
   }
 
   private showErrors(error: unknown): void {

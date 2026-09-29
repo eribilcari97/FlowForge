@@ -1,9 +1,33 @@
-// Include theming for Angular Material with `mat.theme()`.
-// This Sass mixin will define CSS variables that are used for styling Angular Material
-// components according to the Material 3 design spec.
-// Learn more about theming and how to use it for your application's
-// custom components at https://material.angular.dev/guide/theming
 @use '@angular/material' as mat;
+
+:root {
+  --ff-paper: #eef1f3;
+  --ff-panel: #ffffff;
+  --ff-sunken: #f5f7f8;
+  --ff-ink: #15212c;
+  --ff-ink-2: #5b6875;
+  --ff-rule: #d3dae0;
+  --ff-rule-strong: #aeb9c3;
+
+  --ff-run: #e9a20c;
+  --ff-run-ink: #7a5200;
+  --ff-run-wash: #fdf1d3;
+  --ff-ok: #1f7a57;
+  --ff-ok-ink: #155c41;
+  --ff-ok-wash: #ddf1e7;
+  --ff-fail: #b3261e;
+  --ff-fail-ink: #8c1d17;
+  --ff-fail-wash: #fbe4e1;
+  --ff-wait: #6b7a88;
+  --ff-wait-wash: #e6ebef;
+  --ff-idle: #a3adb6;
+
+  --ff-sans: 'Schibsted Grotesk', system-ui, sans-serif;
+  --ff-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  --ff-radius: 8px;
+  --ff-gutter: clamp(16px, 4vw, 40px);
+}
 
 html {
   height: 100%;
@@ -11,29 +35,447 @@ html {
     (
       color: (
         primary: mat.$azure-palette,
-        tertiary: mat.$blue-palette,
+        tertiary: mat.$green-palette,
       ),
-      typography: Roboto,
+      typography: (
+        plain-family: var(--ff-sans),
+        brand-family: var(--ff-sans),
+        bold-weight: 700,
+        medium-weight: 600,
+        regular-weight: 400,
+      ),
       density: 0,
+    )
+  );
+
+  @include mat.theme-overrides(
+    (
+      primary: var(--ff-ink),
+      on-primary: #ffffff,
+      primary-container: var(--ff-wait-wash),
+      on-primary-container: var(--ff-ink),
+      secondary-container: var(--ff-wait-wash),
+      on-secondary-container: var(--ff-ink),
+      tertiary: var(--ff-ok),
+      tertiary-container: var(--ff-ok-wash),
+      on-tertiary-container: var(--ff-ok-ink),
+      error: var(--ff-fail),
+      error-container: var(--ff-fail-wash),
+      on-error-container: var(--ff-fail-ink),
+      surface: var(--ff-panel),
+      on-surface: var(--ff-ink),
+      on-surface-variant: var(--ff-ink-2),
+      surface-container-lowest: var(--ff-panel),
+      surface-container-low: var(--ff-panel),
+      surface-container: var(--ff-sunken),
+      surface-container-high: var(--ff-panel),
+      surface-container-highest: var(--ff-wait-wash),
+      outline: var(--ff-rule-strong),
+      outline-variant: var(--ff-rule),
+      corner-full: 6px,
+      corner-extra-small: 4px,
+      corner-small: 6px,
+      corner-medium: var(--ff-radius),
+      corner-large: 10px,
+      corner-extra-large: 12px,
+    )
+  );
+
+  @include mat.card-overrides(
+    (
+      outlined-outline-color: var(--ff-rule),
+      title-text-weight: 700,
+      title-text-size: 1.25rem,
+    )
+  );
+
+  @include mat.button-overrides(
+    (
+      filled-label-text-weight: 600,
+      text-label-text-weight: 600,
+      outlined-label-text-weight: 600,
+    )
+  );
+
+  @include mat.dialog-overrides(
+    (
+      container-color: var(--ff-panel),
     )
   );
 }
 
 body {
-  // Default the application to a light color theme. This can be changed to
-  // `dark` to enable the dark color theme, or to `light dark` to defer to the
-  // user's system settings.
   color-scheme: light;
-
-  // Set a default background, font and text colors for the application using
-  // Angular Material's system-level CSS variables. Learn more about these
-  // variables at https://material.angular.dev/guide/system-variables
-  background-color: var(--mat-sys-surface);
-  color: var(--mat-sys-on-surface);
-  font: var(--mat-sys-body-medium);
-
-  // Reset the user agent margin.
+  background-color: var(--ff-paper);
+  color: var(--ff-ink);
+  font: 400 0.9375rem/1.5 var(--ff-sans);
   margin: 0;
   height: 100%;
+  -webkit-font-smoothing: antialiased;
 }
-/* You can add global styles to this file, and also import other style files */
+
+h1,
+h2,
+h3 {
+  font-family: var(--ff-sans);
+  color: var(--ff-ink);
+  margin: 0;
+}
+
+h1 {
+  font-size: clamp(1.625rem, 1.2rem + 1.4vw, 2.125rem);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+}
+
+h2 {
+  font-size: 1.1875rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+h3 {
+  font-size: 0.9375rem;
+  font-weight: 700;
+}
+
+a {
+  color: var(--ff-ink);
+  text-decoration-color: var(--ff-rule-strong);
+  text-underline-offset: 3px;
+
+  &:hover {
+    text-decoration-color: currentColor;
+  }
+}
+
+code,
+pre {
+  font-family: var(--ff-mono);
+  font-size: 0.8125rem;
+}
+
+code {
+  font-weight: 500;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ff-run);
+  outline-offset: 2px;
+}
+
+[data-status] {
+  --status: var(--ff-wait);
+  --status-ink: var(--ff-ink-2);
+  --status-wash: var(--ff-wait-wash);
+}
+
+[data-status='RUNNING'] {
+  --status: var(--ff-run);
+  --status-ink: var(--ff-run-ink);
+  --status-wash: var(--ff-run-wash);
+}
+
+[data-status='SUCCEEDED'],
+[data-status='ACTIVE'],
+[data-status='ENABLED'],
+[data-status='UP'] {
+  --status: var(--ff-ok);
+  --status-ink: var(--ff-ok-ink);
+  --status-wash: var(--ff-ok-wash);
+}
+
+[data-status='FAILED'],
+[data-status='ABANDONED'],
+[data-status='DOWN'],
+[data-status='UNREACHABLE'] {
+  --status: var(--ff-fail);
+  --status-ink: var(--ff-fail-ink);
+  --status-wash: var(--ff-fail-wash);
+}
+
+[data-status='CANCELLED'],
+[data-status='SKIPPED'],
+[data-status='PAUSED'],
+[data-status='ARCHIVED'] {
+  --status: var(--ff-idle);
+  --status-ink: var(--ff-ink-2);
+  --status-wash: var(--ff-sunken);
+}
+
+@keyframes ff-glow {
+  50% {
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--ff-run) 25%, transparent);
+  }
+}
+
+.crumb {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+  color: var(--ff-ink-2);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-decoration: none;
+
+  &::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-left: 1.5px solid currentColor;
+    border-bottom: 1.5px solid currentColor;
+    transform: rotate(45deg);
+  }
+
+  &:hover {
+    color: var(--ff-ink);
+  }
+}
+
+.page-header,
+.entity-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px 24px;
+  margin-bottom: 24px;
+}
+
+.page-header .description {
+  margin-top: 8px;
+}
+
+.entity-header {
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--ff-rule);
+
+  .title {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  h1 {
+    overflow-wrap: anywhere;
+  }
+}
+
+.entity-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 14px;
+  color: var(--ff-ink-2);
+  font-size: 0.875rem;
+}
+
+.entity-actions,
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.actions {
+  justify-content: flex-end;
+}
+
+.section-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 32px 0 12px;
+
+  p {
+    margin: 0;
+  }
+
+  > a,
+  > button {
+    flex-shrink: 0;
+  }
+}
+
+.panel {
+  background: var(--ff-panel);
+  border: 1px solid var(--ff-rule);
+  border-radius: var(--ff-radius);
+}
+
+.description {
+  color: var(--ff-ink-2);
+  max-width: 68ch;
+  margin: 0;
+}
+
+.empty,
+.refresh-note {
+  color: var(--ff-ink-2);
+}
+
+.refresh-note {
+  font-size: 0.8125rem;
+}
+
+.page-error,
+.form-error,
+.dialog-error {
+  color: var(--ff-fail-ink);
+}
+
+.danger.mat-mdc-button:not(:disabled) {
+  color: var(--ff-fail);
+}
+
+.alert {
+  margin: 0 0 20px;
+  padding: 12px 16px;
+  border-left: 3px solid var(--ff-fail);
+  border-radius: 0 var(--ff-radius) var(--ff-radius) 0;
+  background: var(--ff-fail-wash);
+  color: var(--ff-fail-ink);
+
+  p {
+    margin: 0;
+  }
+
+  ul {
+    margin: 6px 0 0;
+    padding-left: 20px;
+  }
+}
+
+.json {
+  margin: 0;
+  padding: 12px 14px;
+  background: var(--ff-sunken);
+  border: 1px solid var(--ff-rule);
+  border-radius: 6px;
+  overflow-x: auto;
+  line-height: 1.55;
+}
+
+.table-scroll {
+  overflow-x: auto;
+  background: var(--ff-panel);
+  border: 1px solid var(--ff-rule);
+  border-radius: var(--ff-radius);
+}
+
+.table-scroll table {
+  width: 100%;
+  min-width: 640px;
+  border-collapse: collapse;
+
+  th,
+  td {
+    text-align: left;
+    vertical-align: top;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--ff-rule);
+  }
+
+  th {
+    color: var(--ff-ink-2);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    white-space: nowrap;
+    background: var(--ff-sunken);
+  }
+
+  tbody tr:last-child td {
+    border-bottom: 0;
+  }
+
+  td.rail {
+    box-shadow: inset 3px 0 0 var(--status);
+  }
+}
+
+.muted {
+  color: var(--ff-ink-2);
+}
+
+.run-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+
+  > .run-row:first-child,
+  > li:first-child > .run-row {
+    border-top: 0;
+  }
+}
+
+.run-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 14px 10px 16px;
+  color: inherit;
+  text-decoration: none;
+  border-top: 1px solid var(--ff-rule);
+  box-shadow: inset 3px 0 0 var(--status, transparent);
+
+  &:hover {
+    background: var(--ff-sunken);
+  }
+
+  .run-title {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-weight: 600;
+  }
+
+  .run-meta {
+    color: var(--ff-ink-2);
+    font-size: 0.8125rem;
+    overflow-wrap: anywhere;
+  }
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.form-title {
+  max-width: 760px;
+  margin: 0 auto 20px;
+}
+
+.form-card {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 20px 24px 16px;
+  box-sizing: border-box;
+}
+
+fieldset.config {
+  min-width: 0;
+
+  legend {
+    padding: 0 6px;
+    font-weight: 700;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

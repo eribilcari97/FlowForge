@@ -80,7 +80,41 @@ describe('WorkflowPage', () => {
         size: 5,
         total: 1,
       });
+    http.expectOne('/api/workflows/5/schedules').flush([]);
+    http.expectOne('/api/projects/7').flush({
+      id: 7,
+      name: 'Acme Shop Ops',
+      description: null,
+      workflowCount: 1,
+      createdAt: '2026-09-01T10:00:00Z',
+    });
     await fixture.whenStable();
+  });
+
+  it('shows where the workflow is in its lifecycle', () => {
+    const phases = [...element.querySelectorAll('.lifecycle li')].map((li) => [
+      li.getAttribute('data-state'),
+      li.textContent!.replace(/\s+/g, ' ').trim(),
+    ]);
+
+    expect(phases.map(([state]) => state)).toEqual(['done', 'current', 'done', 'done']);
+    expect(phases[0][1]).toBe('Steps 2 steps in 2 stages');
+    expect(phases[1][1]).toBe('Activate Draft: activate to run it');
+    expect(phases[2][1]).toBe('Trigger Triggered manually');
+    expect(phases[3][1]).toContain('Runs 1 run, last cancelled');
+    expect(element.textContent).toContain('In Acme Shop Ops');
+  });
+
+  it('groups the steps into execution stages', () => {
+    const stages = [...element.querySelectorAll('.stage')].map((stage) => [
+      stage.querySelector('.stage-label strong')!.textContent,
+      [...stage.querySelectorAll('.step .key')].map((key) => key.textContent),
+    ]);
+
+    expect(stages).toEqual([
+      ['Stage 1', ['fetch']],
+      ['Stage 2', ['report']],
+    ]);
   });
 
   it('shows the recent runs of the workflow', () => {

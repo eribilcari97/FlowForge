@@ -1,57 +1,13 @@
 :host {
   display: block;
-  max-width: 900px;
+  max-width: 1200px;
   margin: 0 auto;
-}
-
-.page-error {
-  color: var(--mat-sys-error);
-}
-
-.empty,
-.description,
-.limits {
-  color: var(--mat-sys-on-surface-variant);
-}
-
-.danger {
-  color: var(--mat-sys-error);
-}
-
-.section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 24px;
-}
-
-.status,
-.job-type {
-  font: var(--mat-sys-label-small);
-  padding: 2px 8px;
-  border-radius: 8px;
-  background: var(--mat-sys-surface-container-highest);
-}
-
-.job-type {
-  margin-left: 8px;
-}
-
-.status[data-status='ACTIVE'] {
-  background: var(--mat-sys-primary-container);
-  color: var(--mat-sys-on-primary-container);
-}
-
-.step {
-  height: auto;
-  padding: 8px 0;
 }
 
 .form-card form {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding-top: 16px;
+  gap: 12px;
 }
 
 .row {
@@ -77,50 +33,31 @@
 .config {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  border: 1px solid var(--mat-sys-outline-variant);
-  border-radius: 8px;
+  gap: 12px;
+  border: 1px solid var(--ff-rule);
+  border-radius: var(--ff-radius);
   padding: 12px 16px;
   margin: 0 0 16px;
-}
-
-.actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-.dependencies {
-  color: var(--mat-sys-primary);
-}
-
-.problems {
-  color: var(--mat-sys-error);
-  background: var(--mat-sys-error-container);
-  border-radius: 8px;
-  padding: 8px 16px;
-
-  p {
-    margin: 0;
-  }
+  background: var(--ff-sunken);
 }
 
 .dependency-picker {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  margin: 0 16px 16px;
   padding: 12px 16px;
-  border: 1px solid var(--mat-sys-outline-variant);
-  border-radius: 8px;
+  border: 1px solid var(--ff-rule);
+  border-left: 3px solid var(--ff-ink);
+  border-radius: 0 var(--ff-radius) var(--ff-radius) 0;
+  background: var(--ff-sunken);
 }
 
 .picker-title {
   margin: 0 0 4px;
 }
 
-.workflow-tabs {
-  margin-top: 16px;
+.schedule-note {
+  margin: 20px 0 12px;
 }
 
 .schedule-form {
@@ -128,16 +65,21 @@
   flex-direction: column;
   gap: 4px;
   margin-top: 24px;
+  padding: 20px 24px 16px;
+  background: var(--ff-panel);
+  border: 1px solid var(--ff-rule);
+  border-radius: var(--ff-radius);
+
+  h3 {
+    margin-bottom: 12px;
+  }
 }
 
-.schedules {
-  width: 100%;
-  border-collapse: collapse;
+.limits {
+  color: var(--ff-ink-2);
+  font-size: 0.8125rem;
+}
 
-  th,
-  td {
-    text-align: left;
-    padding: 8px;
-    border-bottom: 1px solid var(--mat-sys-outline-variant);
-  }
+.schedules .limits {
+  margin-top: 2px;
 }

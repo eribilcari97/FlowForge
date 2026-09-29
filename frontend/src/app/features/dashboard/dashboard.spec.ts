@@ -55,6 +55,24 @@ const DATA: DashboardData = {
   ],
 };
 
+const PROJECT = {
+  id: 7,
+  name: 'Acme Shop Ops',
+  description: null,
+  workflowCount: 1,
+  createdAt: '2026-09-01T10:00:00Z',
+};
+
+const WORKFLOW = {
+  id: 5,
+  projectId: 7,
+  name: 'Customer onboarding',
+  description: null,
+  status: 'ACTIVE',
+  createdAt: '2026-09-01T10:00:00Z',
+  updatedAt: '2026-09-01T10:00:00Z',
+};
+
 describe('Dashboard', () => {
   let fixture: ComponentFixture<Dashboard>;
   let element: HTMLElement;
@@ -62,6 +80,7 @@ describe('Dashboard', () => {
 
   beforeEach(() => {
     vi.useFakeTimers();
+    vi.setSystemTime(Date.parse('2026-09-28T10:05:00Z'));
     TestBed.configureTestingModule({
       imports: [Dashboard],
       providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
@@ -79,13 +98,24 @@ describe('Dashboard', () => {
     vi.useRealTimers();
   });
 
+  function flushWorkspace(): void {
+    http.expectOne('/api/projects').flush([PROJECT]);
+    http.expectOne('/api/projects/7/workflows').flush([WORKFLOW]);
+    http
+      .expectOne((request) => request.url === '/api/workflows/5/executions')
+      .flush({ items: DATA.running.items, page: 0, size: 8, total: 12 });
+    http.expectOne('/api/workflows/5/schedules').flush([]);
+  }
+
   it('shows running executions, recent failures and upcoming runs', () => {
+    flushWorkspace();
     http.expectOne('/api/dashboard').flush(DATA);
     fixture.detectChanges();
 
     expect(element.querySelector('.running')?.textContent).toContain(
       'Customer onboarding · run #12',
     );
+    expect(element.querySelector('.running')?.textContent).toContain('Running for 5m 00s');
     expect(element.querySelector('.failures')?.textContent).toContain('14 failed');
     expect(element.querySelector('.failures')?.textContent).toContain('HTTP 503');
     expect(element.querySelector('.failures a[href="/executions"]')).not.toBeNull();
@@ -93,7 +123,44 @@ describe('Dashboard', () => {
     expect(element.querySelector('.upcoming')?.textContent).toContain('Europe/Berlin');
   });
 
+  it('summarises the current state in one line', () => {
+    flushWorkspace();
+    http.expectOne('/api/dashboard').flush(DATA);
+    fixture.detectChanges();
+
+    expect(element.querySelector('.pulse-line')?.textContent).toBe(
+      '1 run in progress, 14 failed in the last 24 hours, next scheduled run in 19 h.',
+    );
+  });
+
+  it('lists recently active workflows with their state', () => {
+    flushWorkspace();
+    http.expectOne('/api/dashboard').flush(DATA);
+    fixture.detectChanges();
+
+    const card = element.querySelector('app-workflow-card')!.textContent!.replace(/\s+/g, ' ');
+    expect(card).toContain('Customer onboarding');
+    expect(card).toContain('Triggered manually');
+    expect(card).toContain('12 runs');
+  });
+
+  it('welcomes a user who has no workflows yet', () => {
+    http.expectOne('/api/projects').flush([]);
+    http.expectOne('/api/dashboard').flush({
+      running: { items: [], page: 0, size: 10, total: 0 },
+      failedLast24Hours: { items: [], page: 0, size: 10, total: 0 },
+      upcomingRuns: [],
+    });
+    fixture.detectChanges();
+
+    expect(element.querySelector('app-welcome')).not.toBeNull();
+    expect(element.querySelector('a.create')?.getAttribute('href')).toBe('/workflows/new');
+    expect(element.querySelectorAll('.templates > li')).toHaveLength(4);
+    expect(element.querySelector('.running')).toBeNull();
+  });
+
   it('refreshes every 10 seconds', () => {
+    flushWorkspace();
     http.expectOne('/api/dashboard').flush(DATA);
 
     vi.advanceTimersByTime(DASHBOARD_REFRESH_MS - 1);
