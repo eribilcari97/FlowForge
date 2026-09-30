@@ -26,15 +26,17 @@ services:
 
   backend:
     build: ./backend
-    image: flowforge-backend
+    image: ${FLOWFORGE_IMAGE_REGISTRY:-ghcr.io/eribilcari97}/flowforge-backend:${FLOWFORGE_IMAGE_TAG:-latest}
     environment:
       SPRING_PROFILES_ACTIVE: ${FLOWFORGE_PROFILES:-demo}
       FLOWFORGE_DB_URL: jdbc:postgresql://postgres:5432/flowforge
       FLOWFORGE_DB_USERNAME: flowforge
       FLOWFORGE_DB_PASSWORD: ${FLOWFORGE_DB_PASSWORD}
       FLOWFORGE_JWT_SECRET: ${FLOWFORGE_JWT_SECRET:?Set FLOWFORGE_JWT_SECRET in .env}
-      FLOWFORGE_SMTP_HOST: mailpit
-      FLOWFORGE_SMTP_PORT: 1025
+      FLOWFORGE_SMTP_HOST: ${FLOWFORGE_SMTP_HOST:-mailpit}
+      FLOWFORGE_SMTP_PORT: ${FLOWFORGE_SMTP_PORT:-1025}
+      FLOWFORGE_SMTP_USERNAME: ${FLOWFORGE_SMTP_USERNAME:-}
+      FLOWFORGE_SMTP_PASSWORD: ${FLOWFORGE_SMTP_PASSWORD:-}
       FLOWFORGE_MAIL_FROM: ${FLOWFORGE_MAIL_FROM:-flowforge@localhost}
       FLOWFORGE_DEMO_EMAIL: ${FLOWFORGE_DEMO_EMAIL:-demo@example.com}
       FLOWFORGE_DEMO_PASSWORD: ${FLOWFORGE_DEMO_PASSWORD:-}
@@ -47,13 +49,50 @@ services:
 
   frontend:
     build: ./frontend
-    image: flowforge-frontend
+    image: ${FLOWFORGE_IMAGE_REGISTRY:-ghcr.io/eribilcari97}/flowforge-frontend:${FLOWFORGE_IMAGE_TAG:-latest}
     ports:
-      - "80:80"
+      - "${FLOWFORGE_HTTP_BIND:-80}:80"
     depends_on:
       backend:
         condition: service_healthy
     restart: unless-stopped
 
+  caddy:
+    image: caddy:2.10-alpine
+    profiles: ["production"]
+    environment:
+      FLOWFORGE_DOMAIN: ${FLOWFORGE_DOMAIN:-localhost}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - frontend
+    restart: unless-stopped
+
+  backup:
+    image: postgres:18-alpine
+    profiles: ["production"]
+    environment:
+      PGHOST: postgres
+      PGUSER: flowforge
+      PGDATABASE: flowforge
+      PGPASSWORD: ${FLOWFORGE_DB_PASSWORD}
+      BACKUP_KEEP_DAYS: ${FLOWFORGE_BACKUP_KEEP_DAYS:-14}
+    volumes:
+      - ./deploy/backup.sh:/backup.sh:ro
+      - ./backups:/backups
+    entrypoint: ["sh", "/backup.sh"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   postgres-data:
+  caddy-data:
+  caddy-config:

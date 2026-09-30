@@ -4,11 +4,13 @@ import java.io.IOException;
 import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.UnknownHostException;
 import java.net.http.HttpClient;
 import java.net.http.HttpTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import org.springframework.http.HttpHeaders;
@@ -39,10 +41,12 @@ public class HttpJobHandler implements JobHandler {
     private static final String IDEMPOTENCY_KEY = "Idempotency-Key";
 
     private final ObjectMapper objectMapper;
+    private final AddressGuard addressGuard;
     private final HttpClient httpClient;
 
-    public HttpJobHandler(ObjectMapper objectMapper) {
+    public HttpJobHandler(ObjectMapper objectMapper, AddressGuard addressGuard) {
         this.objectMapper = objectMapper;
+        this.addressGuard = addressGuard;
         this.httpClient = HttpClient.newBuilder().connectTimeout(CONNECT_TIMEOUT).build();
     }
 
@@ -70,6 +74,14 @@ public class HttpJobHandler implements JobHandler {
         }
         if (uri.getScheme() == null || uri.getHost() == null) {
             return new JobResult.Failure(ErrorType.INVALID_CONFIG, "Not an absolute URL: " + config.url());
+        }
+        try {
+            Optional<String> blocked = addressGuard.check(uri);
+            if (blocked.isPresent()) {
+                return new JobResult.Failure(ErrorType.BLOCKED_ADDRESS, blocked.get());
+            }
+        } catch (UnknownHostException e) {
+            return new JobResult.Failure(ErrorType.CONNECTION_ERROR, "Could not resolve host " + uri.getHost());
         }
 
         JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);

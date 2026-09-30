@@ -11,6 +11,7 @@ import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMoc
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.net.ServerSocket;
+import java.util.List;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
 import org.junit.jupiter.api.AfterEach;
@@ -22,7 +23,7 @@ import tools.jackson.databind.json.JsonMapper;
 class HttpJobHandlerTest {
 
     private final JsonMapper mapper = JsonMapper.builder().build();
-    private final HttpJobHandler handler = new HttpJobHandler(mapper);
+    private final HttpJobHandler handler = new HttpJobHandler(mapper, new AddressGuard(new OutboundHttpProperties(true, List.of())));
     private WireMockServer server;
 
     @BeforeEach
@@ -177,6 +178,23 @@ class HttpJobHandlerTest {
         assertThat(handler.isSafeToRepeat(mapper.readTree("{ \"method\": \"DELETE\" }"))).isTrue();
         assertThat(handler.isSafeToRepeat(mapper.readTree("{ \"method\": \"POST\" }"))).isFalse();
         assertThat(handler.isSafeToRepeat(mapper.readTree("{ \"method\": \"PATCH\" }"))).isFalse();
+    }
+
+    @Test
+    void aRequestToAPrivateAddressIsBlockedBeforeItIsSent() {
+        server.stubFor(get("/internal").willReturn(aResponse().withStatus(200)));
+        HttpJobHandler guarded = new HttpJobHandler(mapper,
+                new AddressGuard(new OutboundHttpProperties(false, List.of())));
+
+        JobResult result = guarded.execute(mapper.readTree("""
+                { "method": "GET", "url": "%s/internal" }
+                """.formatted(server.baseUrl())), new JobContext(301, 1, 5, null));
+
+        assertThat(result).isInstanceOfSatisfying(JobResult.Failure.class, failure -> {
+            assertThat(failure.type()).isEqualTo(ErrorType.BLOCKED_ADDRESS);
+            assertThat(failure.message()).contains("resolves to 127.0.0.1");
+        });
+        assertThat(server.getAllServeEvents()).isEmpty();
     }
 
     private JobResult execute(String configTemplate, int timeoutSeconds) {

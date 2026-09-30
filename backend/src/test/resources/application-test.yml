@@ -8,3 +8,5 @@ flowforge:
     enabled: false
   scheduler:
     enabled: false
+  http:
+    allow-private-addresses: true

@@ -29,6 +29,7 @@ It is a modular monolith built with Spring Boot, Angular and PostgreSQL. Postgre
 - [CI/CD](#cicd)
 - [Repository structure](#repository-structure)
 - [Running locally](#running-locally)
+- [Deploying to a server](#deploying-to-a-server)
 - [Design principles](#design-principles)
 - [Documentation](#documentation)
 
@@ -446,13 +447,13 @@ Representative concurrency tests:
 FlowForge runs on a single VM with Docker Compose:
 
 ```text
-Browser ──► Nginx (TLS, static Angular build, /api proxy) ──► Spring Boot (API + worker + scheduler) ──► PostgreSQL
-                                                                     └──► SMTP / Mailpit
+Browser ──► Caddy (HTTPS) ──► Nginx (static Angular build, /api proxy, rate limits) ──► Spring Boot (API + worker + scheduler) ──► PostgreSQL
+                                                                                              └──► SMTP / Mailpit
 ```
 
 - **Images:** the backend image is a multi-stage build with a JRE runtime and a non-root user. The frontend image builds Angular, and Nginx serves the static files and proxies `/api`.
 - **Full stack:** `docker-compose.yml` runs PostgreSQL, Mailpit, the backend and the Nginx frontend. A `demo` profile seeds a demo user and example workflows.
-- **Production:** HTTPS via Let's Encrypt, secrets supplied through an `.env` file outside version control, and a nightly `pg_dump` backup.
+- **Production:** the two images run as Render free web services, with PostgreSQL managed by Supabase and secrets set as Render environment variables. For self-hosting, the Compose profile `production` adds Caddy (automatic HTTPS) and a nightly `pg_dump` backup. See [Deploying to a server](#deploying-to-a-server).
 - **Scaling out:** additional application instances share the same database. Job claiming, recovery and scheduling rely only on row locks and unique constraints, so no engine changes or leader election are needed. Each worker has the identity `hostname:pid:thread`, which is recorded on every attempt.
 - **Operability:** `/actuator/health`, and job-related log lines carry `executionId`, `jobId` and `attempt` through SLF4J MDC.
 
@@ -462,9 +463,9 @@ Browser ──► Nginx (TLS, static Angular build, /api proxy) ──► Spring
 
 GitHub Actions:
 
-- **CI on every push and pull request:** backend build and tests (`./mvnw verify`, with Testcontainers using the runner's Docker), frontend lint, tests and production build, and Docker image builds.
-- **CD on `main`:** images are pushed to **GitHub Container Registry**, tagged with the commit SHA.
-- **Deployment:** manual approval, then SSH to the VM, `docker compose pull && docker compose up -d`, then a smoke test.
+- **CI on every push and pull request:** backend build and tests (`./mvnw verify`, with Testcontainers using the runner's Docker), frontend format check, tests and production build, and Docker image builds.
+- **CD on `main`:** once every test passed, both images are pushed to **GitHub Container Registry** (`ghcr.io/eribilcari97/flowforge-backend` and `-frontend`), tagged with the commit SHA and `latest`.
+- **Deployment:** Render deploy hooks deploy the exact SHA images, backend first, then CI checks `/actuator/info` for the new version and smoke-tests the frontend. See [Deploying to a server](#deploying-to-a-server).
 
 ---
 
@@ -486,7 +487,7 @@ FlowForge/
 │   └── Dockerfile               Multi-stage build, JRE runtime, non-root user
 ├── frontend/                    Angular application
 │   ├── Dockerfile               Angular build, then Nginx
-│   └── nginx.conf               Static files, SPA fallback, /api proxy
+│   └── nginx.conf.template      Static files, SPA fallback, /api proxy (backend URL and port from env)
 │   └── src/app/
 │       ├── core/                auth service, interceptor, guard, layout
 │       ├── shared/              reusable components and pipes
@@ -495,6 +496,7 @@ FlowForge/
 ├── .github/workflows/           CI/CD pipelines
 ├── docker-compose.yml           PostgreSQL, Mailpit, backend and frontend
 ├── .env.example                 Template for the one .env used by the backend and both Compose files
+├── render.yaml                  Render Blueprint for the two production services
 └── README.md
 ```
 
@@ -569,6 +571,7 @@ cd frontend && npm test -- --watch=false && npm run build
 ```
 
 ---
+
 
 ## Design principles
 

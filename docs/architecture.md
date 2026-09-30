@@ -112,7 +112,8 @@ Request → JWT filter (valid token → user id in SecurityContext)
 - **Authentication**: stateless JWT (HS256, secret from an environment variable, 60-minute expiry). Passwords are hashed with bcrypt.
 - **Authorization** is ownership-based: every lookup includes the owning user, so another user's resource is indistinguishable from a missing one (`404`). There are no roles in the MVP. An `ADMIN` role can be added later without structural changes.
 - The worker, scheduler and recovery task run in-process on rows the owner already created, so they don't need their own authentication.
-- HTTP jobs execute user-supplied URLs. Before any public deployment, `HttpJobHandler` must reject private, loopback, link-local and cloud-metadata addresses (SSRF protection).
+- HTTP jobs execute user-supplied URLs. `HttpJobHandler` rejects private, loopback, link-local and cloud-metadata addresses before sending a request (SSRF protection, [execution-engine.md §14](execution-engine.md#14-job-handlers)).
+- Login and registration are rate limited in Nginx (10 per minute per client IP, bursts of 5) and answer `429` with a `TOO_MANY_REQUESTS` problem body. The limit is per Nginx instance, which is exact with the single-VM deployment.
 
 ---
 
@@ -150,22 +151,44 @@ Polling is used because it is simple and works unchanged across multiple applica
 
 ## 8. Deployment
 
+### Local development
+
+Docker Compose (`docker-compose.yml`) runs PostgreSQL, Mailpit, the backend image and the frontend image. Nginx in the frontend image serves the Angular build and proxies `/api` and `/actuator/health` to the backend, so the browser only ever talks to one origin. For work in the IDE, only `postgres` and `mailpit` are started and `ng serve` proxies instead. Secrets come from a root `.env` that is gitignored; the backend reads the same file outside Docker.
+
+### CI/CD and production
+
 ```mermaid
 flowchart LR
-    B([Browser]) --> N[Nginx<br/>static Angular + /api proxy + TLS]
-    N --> A[Spring Boot<br/>API + worker + scheduler]
-    A --> P[(PostgreSQL)]
-    A --> M[Mailpit / SMTP]
+    G[git push main] --> CI[GitHub Actions<br/>backend tests · frontend checks]
+    CI --> IMG[Docker builds]
+    IMG --> R[(GHCR<br/>image:commit-sha)]
+    R --> F[Render: frontend<br/>Nginx + Angular]
+    R --> B[Render: backend<br/>Spring Boot]
+    F -- "/api, HTTPS" --> B
+    B --> P[(Supabase PostgreSQL)]
 ```
 
-Local development runs PostgreSQL in Docker, and the backend and frontend from the IDE and `ng serve`. The containerized stack (Nginx, application, PostgreSQL, Mailpit) runs with Docker Compose (`docker-compose.yml`), locally and on a single VM. For development from the IDE, only its `postgres` and `mailpit` services are started. Nginx serves the built Angular files and proxies `/api` and `/actuator/health` to the application. Nginx publishes port 80. PostgreSQL and Mailpit are published on `127.0.0.1` only, for local development. The backend publishes no port, so the `demo` profile's unauthenticated `/demo/*` endpoints are never exposed.
+| Stage | Implementation |
+|---|---|
+| CI | Every push and pull request: `./mvnw verify` (Testcontainers PostgreSQL), frontend format check, tests and production build. |
+| Images | Built after both checks pass. On `main` only, pushed to GHCR as `flowforge-backend` and `flowforge-frontend`, tagged with the commit SHA (and `latest`). The backend image carries the SHA, shown at `/actuator/info`. |
+| Deploy | On `main` only. Render deploy hooks are called with the exact SHA image, backend first. CI waits until `/actuator/info` reports that SHA, then deploys the frontend and checks the page and the proxied health endpoint. |
+| Runtime | Two Render free web services running the published images (`render.yaml`). The frontend's Nginx proxies `/api` to the backend's public HTTPS URL (`FLOWFORGE_API_URL`), so there is no CORS and the same image runs locally and on Render. |
+| Database | Managed PostgreSQL on Supabase, reached through its session pooler over SSL. Flyway migrates on startup. |
+| Secrets | Render environment variables (`FLOWFORGE_DB_URL`, `FLOWFORGE_DB_USERNAME`, `FLOWFORGE_DB_PASSWORD`, `FLOWFORGE_JWT_SECRET`) and GitHub secrets for the deploy hooks. Nothing in git. |
+
+Render health checks use `/actuator/health`, which includes the database, so a deploy with broken database settings never becomes live.
+
+**Free-tier trade-offs.** Render free services sleep after 15 minutes without traffic and share 750 instance hours per month. A cold backend start takes a few minutes on 0.1 CPU; the image uses a small heap, the serial GC and the C1 compiler to fit 512 MB and halve startup time. While the backend sleeps, the worker and scheduler sleep too: due schedules fire once when it wakes ([execution-engine.md §12](execution-engine.md#12-scheduling)), not at their exact time. Render free blocks outbound SMTP on ports 25, 465 and 587, so EMAIL steps need a provider on port 2525. A Render static site would avoid the second sleeping service, but it is built from source instead of the GHCR image and loses the Nginx rate limiting.
+
+**Self-hosted alternative.** The Compose profile `production` adds Caddy (automatic Let's Encrypt HTTPS) and a nightly `pg_dump` backup container for running everything on one VM.
 
 | Image | Build | Runtime |
 |---|---|---|
-| `backend/Dockerfile` | JDK + Maven wrapper, `package`, then Spring Boot's layered extraction | JRE only, non-root `flowforge` user, `JarLauncher`, health check on `/actuator/health` |
-| `frontend/Dockerfile` | Node, `npm ci`, production build | Nginx serving `dist/flowforge/browser` with SPA fallback, long caching for hashed JS/CSS |
+| `backend/Dockerfile` | JDK + Maven wrapper, `package`, then Spring Boot's layered extraction | JRE only, non-root user, listens on `$PORT` (default 8080), memory settings for 512 MB, health check on `/actuator/health` |
+| `frontend/Dockerfile` | Node, `npm ci`, production build | Nginx from a template: port `$PORT`, backend `FLOWFORGE_API_URL` (default `http://backend:8080`), SPA fallback, rate limits, long caching for hashed JS/CSS |
 
-Secrets (`FLOWFORGE_JWT_SECRET`, `FLOWFORGE_DB_PASSWORD`, `FLOWFORGE_DEMO_PASSWORD`) come from a root `.env` file that is never committed. Compose refuses to start without the first two. The same file is read by the backend when it runs outside Docker. The `demo` profile seeds a demo user and three example workflows (daily sales report, API health check, partner sync with retries) that call the application's own demo endpoints, so a fresh stack shows real runs, emails in Mailpit and retries. Seeding runs once and is skipped when the demo user already exists.
+The `demo` profile seeds a demo user and three example workflows that call the application's own demo endpoints. Seeding runs once and is skipped when the demo user already exists.
 
 ---
 
@@ -197,6 +220,8 @@ Every attempt records the worker that ran it as `hostname:pid:flowforge-job-<n>`
 | GitHub Actions | Build and test on every push |
 | JSONata library, Mailpit | TRANSFORM and EMAIL job types |
 | Docker images, Nginx | Containerized deployment |
+| Render, Supabase | Free hosting for the two images and managed PostgreSQL |
+| Caddy | HTTPS with automatic Let's Encrypt certificates (self-hosted VM option) |
 | Server-Sent Events | Only if polling proves inadequate |
 | JobRunr | The engine is implemented in-application |
 | Prometheus, Grafana | Logs and health checks suffice initially |

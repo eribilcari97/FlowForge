@@ -1,0 +1,3 @@
+flowforge:
+  http:
+    allow-private-addresses: true

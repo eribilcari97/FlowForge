@@ -1,3 +1,6 @@
+server:
+  port: ${PORT:8080}
+
 spring:
   application:
     name: flowforge
@@ -10,6 +13,8 @@ spring:
     url: ${FLOWFORGE_DB_URL:jdbc:postgresql://localhost:5432/flowforge}
     username: ${FLOWFORGE_DB_USERNAME:flowforge}
     password: ${FLOWFORGE_DB_PASSWORD:flowforge}
+    hikari:
+      maximum-pool-size: ${FLOWFORGE_DB_POOL_SIZE:10}
 
   jpa:
     # Flyway owns the schema. Hibernate only checks that entities match it.
@@ -39,10 +44,17 @@ management:
   health:
     mail:
       enabled: false
+  info:
+    env:
+      enabled: true
   endpoints:
     web:
       exposure:
-        include: health
+        include: health,info
+
+info:
+  app:
+    version: ${FLOWFORGE_VERSION:local}
 
 flowforge:
   security:
@@ -65,7 +77,9 @@ flowforge:
     max-runs-per-tick: 100
   mail:
     from: ${FLOWFORGE_MAIL_FROM:flowforge@localhost}
+  http:
+    allow-private-addresses: ${FLOWFORGE_HTTP_ALLOW_PRIVATE_ADDRESSES:false}
   demo:
     email: ${FLOWFORGE_DEMO_EMAIL:demo@example.com}
     password: ${FLOWFORGE_DEMO_PASSWORD:}
-    base-url: ${FLOWFORGE_DEMO_BASE_URL:http://localhost:8080}
+    base-url: ${FLOWFORGE_DEMO_BASE_URL:http://localhost:${server.port}}

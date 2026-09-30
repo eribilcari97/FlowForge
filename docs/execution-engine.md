@@ -308,6 +308,7 @@ If it updates **0 rows**, this attempt is no longer the current one. For example
 | `EMAIL_REJECTED` | The SMTP server answered 5xx (for example an unknown mailbox), or authentication failed | No |
 | `OUTCOME_UNKNOWN` | Sending failed in a way that leaves it unclear whether the mail was accepted | Only if safe to repeat (EMAIL never is) |
 | `INVALID_CONFIG`, `PLACEHOLDER_MISSING` | Bad URL, missing value | No |
+| `BLOCKED_ADDRESS` | The URL resolves to a private, loopback, link-local or metadata address (SSRF guard) | No |
 | `OUTPUT_TOO_LARGE` | Response over 256 KB | No |
 | `LEASE_EXPIRED` | Worker disappeared (§9) | Only if safe to repeat |
 | `UNEXPECTED_ERROR` | Exception in the handler (a bug) | Yes (limited by the attempt count) |
@@ -499,7 +500,7 @@ public sealed interface JobResult {
 
 - Handlers are Spring beans collected into a `Map<JobType, JobHandler>`. Adding a job type means a new class and a new enum value (plus a migration extending the `CHECK`).
 - `HttpJobHandler` uses Spring's `RestClient` with connect and read timeouts, sends the `Idempotency-Key`, and turns every outcome into a `JobResult`. It returns failures as values instead of throwing.
-- **Later (before public deployment):** block requests to private and internal addresses (`localhost`, `10.x`, `169.254.169.254`, …), because otherwise users could make the server call internal services (SSRF).
+- **SSRF guard (`AddressGuard`):** before each request, the host is resolved and the job fails with `BLOCKED_ADDRESS` if any address is loopback, private (`10/8`, `172.16/12`, `192.168/16`), link-local (including the cloud metadata address `169.254.169.254`), carrier-grade NAT (`100.64/10`), multicast, reserved, or an IPv6 unique-local or link-local address. Redirects are never followed, so a public URL can't redirect into the internal network. `flowforge.http.allow-private-addresses=true` turns the guard off for local development (the `dev` and `test` profiles). The `demo` profile exempts only its own demo URLs (`flowforge.http.allowed-internal-url-prefixes`). Residual risk: DNS rebinding between the check and the connection, which would need a resolver pinned to the checked address.
 
 ---
 

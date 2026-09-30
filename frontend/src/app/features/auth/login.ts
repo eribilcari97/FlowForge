@@ -82,10 +82,13 @@ export class Login {
         ),
       error: (error: unknown) => {
         this.submitting.set(false);
+        const code = problemOf(error)?.code;
         this.error.set(
-          problemOf(error)?.code === 'INVALID_CREDENTIALS'
+          code === 'INVALID_CREDENTIALS'
             ? 'Invalid email or password.'
-            : 'Login failed. Please try again.',
+            : code === 'TOO_MANY_REQUESTS'
+              ? 'Too many attempts. Wait a minute and try again.'
+              : 'Login failed. Please try again.',
         );
       },
     });

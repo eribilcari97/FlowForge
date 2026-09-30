@@ -41,7 +41,7 @@ class RetryPolicyTest {
 
     @ParameterizedTest
     @EnumSource(value = ErrorType.class,
-            names = { "HTTP_4XX", "UNEXPECTED_STATUS", "INVALID_CONFIG", "PLACEHOLDER_MISSING", "OUTPUT_TOO_LARGE",
+            names = { "HTTP_4XX", "UNEXPECTED_STATUS", "INVALID_CONFIG", "BLOCKED_ADDRESS", "PLACEHOLDER_MISSING", "OUTPUT_TOO_LARGE",
                     "TRANSFORM_ERROR", "EMAIL_REJECTED" })
     void errorsThatWouldHappenAgainAreNeverRetried(ErrorType type) {
         assertThat(RetryPolicy.isRetryable(type, true)).isFalse();

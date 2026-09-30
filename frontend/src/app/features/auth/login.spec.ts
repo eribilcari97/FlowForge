@@ -54,6 +54,23 @@ describe('Login', () => {
     expect(navigateByUrl).not.toHaveBeenCalled();
   });
 
+  it('asks the user to wait after too many attempts', async () => {
+    await setUp(null);
+
+    await submit('ana@example.com', 'wrong-password');
+    http
+      .expectOne('/api/auth/login')
+      .flush(
+        { status: 429, code: 'TOO_MANY_REQUESTS', detail: 'Too many attempts.' },
+        { status: 429, statusText: 'Too Many Requests' },
+      );
+    await fixture.whenStable();
+
+    expect(element.querySelector('[role=alert]')?.textContent).toContain(
+      'Too many attempts. Wait a minute and try again.',
+    );
+  });
+
   it('returns to the page the user originally asked for', async () => {
     await setUp('/projects/42');
 

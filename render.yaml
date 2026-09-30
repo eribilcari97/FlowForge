@@ -1,0 +1,34 @@
+services:
+  - type: web
+    name: flowforge-backend
+    runtime: image
+    image:
+      url: ghcr.io/eribilcari97/flowforge-backend:latest
+    plan: free
+    region: frankfurt
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: FLOWFORGE_DB_URL
+        sync: false
+      - key: FLOWFORGE_DB_USERNAME
+        sync: false
+      - key: FLOWFORGE_DB_PASSWORD
+        sync: false
+      - key: FLOWFORGE_JWT_SECRET
+        generateValue: true
+      - key: FLOWFORGE_DB_POOL_SIZE
+        value: "5"
+      - key: SPRING_PROFILES_ACTIVE
+        value: default
+
+  - type: web
+    name: flowforge-frontend
+    runtime: image
+    image:
+      url: ghcr.io/eribilcari97/flowforge-frontend:latest
+    plan: free
+    region: frankfurt
+    healthCheckPath: /
+    envVars:
+      - key: FLOWFORGE_API_URL
+        sync: false

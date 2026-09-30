@@ -99,6 +99,8 @@ export class Register {
         const problem = problemOf(error);
         if (problem?.code === 'EMAIL_TAKEN') {
           this.errors.set(['An account with this email already exists.']);
+        } else if (problem?.code === 'TOO_MANY_REQUESTS') {
+          this.errors.set(['Too many attempts. Wait a minute and try again.']);
         } else if (problem?.errors?.length) {
           this.errors.set(problem.errors.map((e) => `${e.field}: ${e.message}`));
         } else {

@@ -52,6 +52,14 @@ class ApplicationIntegrationTest {
     }
 
     @Test
+    void infoShowsTheDeployedVersionWithoutAuthentication() {
+        assertThat(mvc.get().uri("/actuator/info"))
+                .hasStatusOk()
+                .bodyJson()
+                .extractingPath("$.app.version").isEqualTo("local");
+    }
+
+    @Test
     void unknownApiPathReturnsProblemDetail() {
         assertThat(mvc.get().uri("/api/does-not-exist").with(jwt()))
                 .hasStatus(HttpStatus.NOT_FOUND)

@@ -342,7 +342,7 @@ Two instances run side by side with no duplicate job execution or scheduling. St
 
 ### Implementation
 
-- CI on every push and pull request: backend tests (Testcontainers), frontend lint, tests and build, Docker image builds
+- CI on every push and pull request: backend tests (Testcontainers), frontend format check (Prettier), tests and build, Docker image builds
 - CD on `main`: images pushed to GitHub Container Registry, tagged with the commit SHA
 
 ### Complete when
@@ -355,19 +355,22 @@ Every merge to `main` produces tested images in the registry.
 
 ### Purpose
 
-Run a public instance on a single VM with Docker Compose.
+Run a public instance for free: the two Docker images on Render, PostgreSQL managed by Supabase.
 
 ### Implementation
 
-- HTTPS via Let's Encrypt. Secrets supplied through an `.env` file outside version control.
+- Render free web services running the GHCR images (`render.yaml`). Render provides HTTPS. Secrets are Render environment variables.
+- Frontend Nginx proxies `/api` to the backend's public URL (`FLOWFORGE_API_URL`), so the browser stays same-origin and the same image runs locally and on Render.
+- Supabase PostgreSQL through the session pooler over SSL. Flyway migrates on startup.
+- Backend listens on `$PORT`, reports its commit at `/actuator/info`, and uses JVM settings that fit 512 MB.
 - **SSRF protection in `HttpJobHandler`**: requests to private, loopback, link-local and metadata addresses are rejected. Required before public exposure.
-- Rate limiting on login. Required before public exposure.
-- Nightly `pg_dump` backup
-- Deployment job: manual approval → SSH → `docker compose pull && docker compose up -d` → smoke test
+- Rate limiting on login and registration (Nginx). Required before public exposure.
+- Deployment job on `main`: Render deploy hooks with the commit's images → wait for the new version at `/actuator/info` → smoke test through the frontend.
+- Self-hosted alternative: Compose profile `production` with Caddy (Let's Encrypt) and a nightly `pg_dump` backup.
 
 ### Complete when
 
-The application runs publicly over HTTPS, with backups and the SSRF guard active.
+The application runs publicly over HTTPS from the images of the latest `main` commit, with the SSRF guard active.
 
 ---
 

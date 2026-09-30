@@ -1,0 +1,5 @@
+flowforge:
+  http:
+    allowed-internal-url-prefixes:
+      - ${flowforge.demo.base-url}/demo/
+      - ${flowforge.demo.base-url}/actuator/health
