@@ -329,12 +329,12 @@ Two instances run side by side with no duplicate job execution or scheduling. St
 
 - Backend Dockerfile: multi-stage build, JRE runtime, non-root user
 - Frontend Dockerfile: build stage plus Nginx serving static files and proxying `/api`
-- `docker-compose.full.yml`: nginx, app, postgres, mailpit
+- `docker-compose.yml`: postgres, mailpit, backend, frontend (Nginx). Local development starts only `postgres` and `mailpit` from the same file.
 - `demo` profile seeding a demo user and example workflows
 
 ### Complete when
 
-`docker compose -f docker-compose.full.yml up` starts the complete system, reachable at `http://localhost`.
+`docker compose up` starts the complete system, reachable at `http://localhost`.
 
 ---
 

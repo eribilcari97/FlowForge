@@ -156,16 +156,18 @@ Response: `202 Accepted`. Nothing has run yet.
 Worker (one poll thread + a pool of 4 job threads, inside Spring Boot)
 
 every 1 second (and immediately after a job finishes):
-    free = 4 - jobsInFlight
-    if free > 0:
-        jobs = claim(free)                        // transaction 1
-        for each job: pool.submit(() -> run(job))
+    for each free job thread (slot):
+        job = claim(1, "hostname:pid:flowforge-job-<slot>")   // transaction 1
+        if none: stop claiming until the next poll
+        pool.submit(() -> run(job))                           // runs on that slot's thread
 
 run(job):
     context = { input, execution, steps.<upstream>.output }     // read-only query
     result  = handler.execute(job.config, context), limited by job.timeout
     record(job.id, job.attempt, result)           // transaction 2
 ```
+
+**Worker identity.** Every claim is made for one specific job thread, so `locked_by` and the attempt's `worker_id` name exactly who ran it: `hostname:pid:flowforge-job-<n>`. Claiming one job per free thread costs at most four small transactions per poll and keeps the claim and the attempt row in the same transaction. `flowforge.worker.instance-id` replaces the `hostname:pid` part when an instance needs a fixed name (for example two instances in one test JVM).
 
 A **DELAY** job never blocks a thread. Its `available_at` is simply in the future, so it isn't claimable until the time has passed. When a worker finally claims it, it succeeds immediately. A 3-day delay costs nothing but a timestamp.
 
@@ -507,6 +509,7 @@ public sealed interface JobResult {
 flowforge:
   worker:
     enabled: true
+    instance-id: ""
     threads: 4
     poll-interval: 1s
     lease-grace: 60s

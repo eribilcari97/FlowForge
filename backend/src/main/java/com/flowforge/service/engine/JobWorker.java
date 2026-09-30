@@ -4,11 +4,11 @@ import java.lang.management.ManagementFactory;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.List;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Semaphore;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,15 +25,16 @@ public class JobWorker implements SmartLifecycle {
 
     private static final Logger log = LoggerFactory.getLogger(JobWorker.class);
     private static final long ERROR_BACKOFF_MS = 5000;
+    private static final int MAX_HOST_NAME_LENGTH = 50;
 
     private final JobQueue queue;
     private final JobRunner runner;
     private final WorkerProperties properties;
-    private final String workerId;
+    private final String instanceId;
     private final Object wakeUp = new Object();
 
     private volatile boolean running;
-    private Semaphore freeThreads;
+    private BlockingQueue<Integer> freeSlots;
     private ExecutorService jobThreads;
     private Thread pollThread;
 
@@ -41,7 +42,9 @@ public class JobWorker implements SmartLifecycle {
         this.queue = queue;
         this.runner = runner;
         this.properties = properties;
-        this.workerId = hostName() + ":" + ManagementFactory.getRuntimeMXBean().getPid();
+        this.instanceId = properties.instanceId() != null
+                ? properties.instanceId()
+                : hostName() + ":" + ManagementFactory.getRuntimeMXBean().getPid();
     }
 
     @Override
@@ -55,13 +58,14 @@ public class JobWorker implements SmartLifecycle {
             return;
         }
         running = true;
-        freeThreads = new Semaphore(properties.threads());
-        AtomicInteger threadNumber = new AtomicInteger();
-        jobThreads = Executors.newFixedThreadPool(properties.threads(),
-                task -> new Thread(task, "flowforge-job-" + threadNumber.incrementAndGet()));
+        freeSlots = new LinkedBlockingQueue<>();
+        for (int slot = 1; slot <= properties.threads(); slot++) {
+            freeSlots.add(slot);
+        }
+        jobThreads = Executors.newFixedThreadPool(properties.threads());
         pollThread = new Thread(this::pollLoop, "flowforge-worker-poll");
         pollThread.start();
-        log.info("Worker {} started with {} job threads", workerId, properties.threads());
+        log.info("Worker {} started with {} job threads", instanceId, properties.threads());
     }
 
     @Override
@@ -81,7 +85,7 @@ public class JobWorker implements SmartLifecycle {
             jobThreads.shutdownNow();
             Thread.currentThread().interrupt();
         }
-        log.info("Worker {} stopped", workerId);
+        log.info("Worker {} stopped", instanceId);
     }
 
     @Override
@@ -92,11 +96,7 @@ public class JobWorker implements SmartLifecycle {
     private void pollLoop() {
         while (running) {
             try {
-                int free = freeThreads.availablePermits();
-                if (free > 0) {
-                    List<ClaimedJob> jobs = queue.claim(free, workerId, properties.leaseGrace());
-                    jobs.forEach(this::submit);
-                }
+                claimForFreeSlots();
                 waitForWork(properties.pollInterval().toMillis());
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -113,13 +113,39 @@ public class JobWorker implements SmartLifecycle {
         }
     }
 
-    private void submit(ClaimedJob job) {
-        freeThreads.acquireUninterruptibly();
+    private void claimForFreeSlots() {
+        Integer slot;
+        while ((slot = freeSlots.poll()) != null) {
+            List<ClaimedJob> claimed;
+            try {
+                claimed = queue.claim(1, workerId(slot), properties.leaseGrace());
+            } catch (RuntimeException e) {
+                freeSlots.add(slot);
+                throw e;
+            }
+            if (claimed.isEmpty()) {
+                freeSlots.add(slot);
+                return;
+            }
+            submit(claimed.getFirst(), slot);
+        }
+    }
+
+    private String workerId(int slot) {
+        return instanceId + ":" + threadName(slot);
+    }
+
+    private static String threadName(int slot) {
+        return "flowforge-job-" + slot;
+    }
+
+    private void submit(ClaimedJob job, int slot) {
         jobThreads.execute(() -> {
+            Thread.currentThread().setName(threadName(slot));
             try {
                 runner.run(job);
             } finally {
-                freeThreads.release();
+                freeSlots.add(slot);
                 synchronized (wakeUp) {
                     wakeUp.notifyAll();
                 }
@@ -135,7 +161,8 @@ public class JobWorker implements SmartLifecycle {
 
     private static String hostName() {
         try {
-            return InetAddress.getLocalHost().getHostName();
+            String name = InetAddress.getLocalHost().getHostName();
+            return name.length() > MAX_HOST_NAME_LENGTH ? name.substring(0, MAX_HOST_NAME_LENGTH) : name;
         } catch (UnknownHostException e) {
             return "unknown-host";
         }

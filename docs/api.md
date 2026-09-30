@@ -395,9 +395,9 @@ Jobs that haven't started become `CANCELLED` immediately. A job currently runnin
   "output": { "status": 201, "body": { "id": "crm_881" }, "durationMs": 184 },
   "lastError": "HTTP 503 Service Unavailable",
   "attempts": [
-    { "number": 1, "status": "FAILED", "workerId": "flowforge-1:worker-2", "startedAt": "2026-09-27T09:30:00Z",
+    { "number": 1, "status": "FAILED", "workerId": "flowforge-1:1:flowforge-job-2", "startedAt": "2026-09-27T09:30:00Z",
       "finishedAt": "2026-09-27T09:30:01Z", "errorType": "HTTP_5XX", "errorMessage": "HTTP 503 Service Unavailable", "retryable": true },
-    { "number": 2, "status": "SUCCEEDED", "workerId": "flowforge-1:worker-1", "startedAt": "2026-09-27T09:30:11Z",
+    { "number": 2, "status": "SUCCEEDED", "workerId": "flowforge-1:1:flowforge-job-1", "startedAt": "2026-09-27T09:30:11Z",
       "finishedAt": "2026-09-27T09:30:11Z", "errorType": null, "errorMessage": null, "retryable": null }
   ]
 }

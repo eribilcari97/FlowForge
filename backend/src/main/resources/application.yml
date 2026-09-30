@@ -3,7 +3,7 @@ spring:
     name: flowforge
 
   config:
-    import: optional:file:.env[.properties]
+    import: optional:file:.env[.properties],optional:file:../.env[.properties]
 
   # Local development defaults match docker-compose.yml. Override with environment variables elsewhere.
   datasource:
@@ -51,6 +51,7 @@ flowforge:
       access-token-ttl: 60m
   worker:
     enabled: true
+    instance-id: ${FLOWFORGE_WORKER_INSTANCE_ID:}
     threads: 4
     poll-interval: 1s
     lease-grace: 60s
@@ -64,3 +65,7 @@ flowforge:
     max-runs-per-tick: 100
   mail:
     from: ${FLOWFORGE_MAIL_FROM:flowforge@localhost}
+  demo:
+    email: ${FLOWFORGE_DEMO_EMAIL:demo@example.com}
+    password: ${FLOWFORGE_DEMO_PASSWORD:}
+    base-url: ${FLOWFORGE_DEMO_BASE_URL:http://localhost:8080}

@@ -158,7 +158,14 @@ flowchart LR
     A --> M[Mailpit / SMTP]
 ```
 
-Local development runs PostgreSQL in Docker, and the backend and frontend from the IDE and `ng serve`. The containerized stack (Nginx, application, PostgreSQL, Mailpit) runs with Docker Compose, locally and on a single VM. Nginx serves the built Angular files and proxies `/api` to the application.
+Local development runs PostgreSQL in Docker, and the backend and frontend from the IDE and `ng serve`. The containerized stack (Nginx, application, PostgreSQL, Mailpit) runs with Docker Compose (`docker-compose.yml`), locally and on a single VM. For development from the IDE, only its `postgres` and `mailpit` services are started. Nginx serves the built Angular files and proxies `/api` and `/actuator/health` to the application. Nginx publishes port 80. PostgreSQL and Mailpit are published on `127.0.0.1` only, for local development. The backend publishes no port, so the `demo` profile's unauthenticated `/demo/*` endpoints are never exposed.
+
+| Image | Build | Runtime |
+|---|---|---|
+| `backend/Dockerfile` | JDK + Maven wrapper, `package`, then Spring Boot's layered extraction | JRE only, non-root `flowforge` user, `JarLauncher`, health check on `/actuator/health` |
+| `frontend/Dockerfile` | Node, `npm ci`, production build | Nginx serving `dist/flowforge/browser` with SPA fallback, long caching for hashed JS/CSS |
+
+Secrets (`FLOWFORGE_JWT_SECRET`, `FLOWFORGE_DB_PASSWORD`, `FLOWFORGE_DEMO_PASSWORD`) come from a root `.env` file that is never committed. Compose refuses to start without the first two. The same file is read by the backend when it runs outside Docker. The `demo` profile seeds a demo user and three example workflows (daily sales report, API health check, partner sync with retries) that call the application's own demo endpoints, so a fresh stack shows real runs, emails in Mailpit and retries. Seeding runs once and is skipped when the demo user already exists.
 
 ---
 
@@ -172,6 +179,8 @@ The same application can run as several instances against one database without c
 - The UI polls, so any instance can serve status requests.
 
 Instances can optionally be split by role: API-only instances set `flowforge.worker.enabled=false`, and other instances run the worker.
+
+Every attempt records the worker that ran it as `hostname:pid:flowforge-job-<n>`, so the job history shows which instance and thread did the work. With Docker Compose, `docker compose up --scale backend=2` runs two instances behind the same Nginx, which resolves the `backend` service name through Docker's DNS and spreads requests across both. An integration test starts a second Spring context against the same PostgreSQL and verifies that 30 executions are shared with every job running exactly once, that concurrent schedulers fire each due time once, and that a job left behind by one instance is recovered and finished by the other.
 
 ---
 

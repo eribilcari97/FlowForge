@@ -451,7 +451,7 @@ Browser ──► Nginx (TLS, static Angular build, /api proxy) ──► Spring
 ```
 
 - **Images:** the backend image is a multi-stage build with a JRE runtime and a non-root user. The frontend image builds Angular, and Nginx serves the static files and proxies `/api`.
-- **Full stack:** `docker-compose.full.yml` runs Nginx, the application, PostgreSQL and Mailpit. A `demo` profile seeds a demo user and example workflows.
+- **Full stack:** `docker-compose.yml` runs PostgreSQL, Mailpit, the backend and the Nginx frontend. A `demo` profile seeds a demo user and example workflows.
 - **Production:** HTTPS via Let's Encrypt, secrets supplied through an `.env` file outside version control, and a nightly `pg_dump` backup.
 - **Scaling out:** additional application instances share the same database. Job claiming, recovery and scheduling rely only on row locks and unique constraints, so no engine changes or leader election are needed. Each worker has the identity `hostname:pid:thread`, which is recorded on every attempt.
 - **Operability:** `/actuator/health`, and job-related log lines carry `executionId`, `jobId` and `attempt` through SLF4J MDC.
@@ -482,15 +482,19 @@ FlowForge/
 │       ├── exception/           ProblemDetail error handling and error codes
 │       ├── dto/                 request and response records
 │       └── config/              application configuration
-│   └── src/main/resources/db/migration/   Flyway migrations
+│   ├── src/main/resources/db/migration/   Flyway migrations
+│   └── Dockerfile               Multi-stage build, JRE runtime, non-root user
 ├── frontend/                    Angular application
+│   ├── Dockerfile               Angular build, then Nginx
+│   └── nginx.conf               Static files, SPA fallback, /api proxy
 │   └── src/app/
 │       ├── core/                auth service, interceptor, guard, layout
 │       ├── shared/              reusable components and pipes
 │       └── features/            auth, projects, workflows, executions, schedules
 ├── docs/                        Design documentation
 ├── .github/workflows/           CI/CD pipelines
-├── docker-compose.yml           Local development services
+├── docker-compose.yml           PostgreSQL, Mailpit, backend and frontend
+├── .env.example                 Template for the one .env used by the backend and both Compose files
 └── README.md
 ```
 
@@ -501,13 +505,13 @@ FlowForge/
 **Prerequisites:** Java 21 or newer, Node.js 24 (or 22 LTS), Docker.
 
 ```bash
-# 1. Start the development services
-#    PostgreSQL on localhost:5432, Mailpit SMTP on localhost:1025 and its web UI on http://localhost:8025
-docker compose up -d
+# 1. Create the root .env from the template and set FLOWFORGE_JWT_SECRET
+#    (for example: openssl rand -base64 48) and FLOWFORGE_DB_PASSWORD
+cp .env.example .env
 
-# 2. Create backend/.env from the template and set FLOWFORGE_JWT_SECRET
-#    (for example: openssl rand -base64 48)
-cp backend/.env.example backend/.env
+# 2. Start only the database and Mailpit
+#    PostgreSQL on localhost:5432, Mailpit SMTP on localhost:1025 and its web UI on http://localhost:8025
+docker compose up -d postgres mailpit
 
 # 3. Start the backend on http://localhost:8080
 cd backend
@@ -523,7 +527,9 @@ Open `http://localhost:4200` and create an account. The dev server proxies `/api
 
 **Configuration**
 
-The backend reads these variables from `backend/.env` when that file exists. `backend/.env` is gitignored and must never be committed, and `backend/.env.example` is the committed template. Without the file, for example on a server, set them as real environment variables.
+There is one configuration file for everything: the root `.env`. The backend reads it when started from `backend/` or from the project root, and `docker-compose.yml` takes the database password and the other secrets from it. `.env` is gitignored and must never be committed, and `.env.example` is the committed template. Without the file, for example on a server, set the variables as real environment variables.
+
+`FLOWFORGE_DB_PASSWORD` is used both to create the database and to connect to it. PostgreSQL applies it only when its volume is first created, so after changing it, recreate the development volume (`docker compose down -v`).
 
 | Variable | Purpose |
 |---|---|
@@ -531,8 +537,29 @@ The backend reads these variables from `backend/.env` when that file exists. `ba
 | `FLOWFORGE_DB_URL`, `FLOWFORGE_DB_USERNAME`, `FLOWFORGE_DB_PASSWORD` | Database connection. Defaults match `docker-compose.yml`. |
 | `FLOWFORGE_SMTP_HOST`, `FLOWFORGE_SMTP_PORT`, `FLOWFORGE_SMTP_USERNAME`, `FLOWFORGE_SMTP_PASSWORD` | SMTP server for EMAIL steps. Defaults to the Mailpit container (`localhost:1025`, no login). |
 | `FLOWFORGE_MAIL_FROM` | Sender address of EMAIL steps. Default `flowforge@localhost`. |
+| `FLOWFORGE_WORKER_INSTANCE_ID` | Optional name of this instance on job attempts. Default `hostname:pid`. |
+| `FLOWFORGE_DEMO_EMAIL`, `FLOWFORGE_DEMO_PASSWORD`, `FLOWFORGE_DEMO_BASE_URL` | Demo user and the base URL its example workflows call. Only read with the `demo` profile. The password is required there (at least 10 characters). |
 
 Engine settings live under `flowforge.*`: worker threads, poll interval, lease grace, recovery and scheduler intervals, and limits such as 30 steps per workflow and 256 KB of job output.
+
+**Full stack in Docker**
+
+```bash
+# 1. Use the same root .env as above, with FLOWFORGE_DEMO_PASSWORD also set
+
+# 2. Build and start Nginx, the application, PostgreSQL and Mailpit
+docker compose up --build
+```
+
+Open `http://localhost` and log in as `demo@example.com` with `FLOWFORGE_DEMO_PASSWORD`. The `demo` profile (`FLOWFORGE_PROFILES`, on by default) seeds three example workflows and starts one run of each. Emails sent by EMAIL steps appear in Mailpit at `http://localhost:8025`. The root `.env` is gitignored and must never be committed.
+
+Two application instances sharing the work:
+
+```bash
+docker compose up --build --scale backend=2
+```
+
+Local development and the full stack use the same PostgreSQL container and volume, so data created in one is visible in the other. With the `demo` profile on, the backend container seeds the demo user into that database once.
 
 **Tests** (Docker must be running for Testcontainers):
 

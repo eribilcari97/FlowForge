@@ -1,14 +1,12 @@
-# Local development database. The backend's defaults in application.yml match these values.
-# These are throwaway local credentials, not secrets. Real deployments supply their own.
 services:
   postgres:
     image: postgres:18-alpine
     environment:
       POSTGRES_DB: flowforge
       POSTGRES_USER: flowforge
-      POSTGRES_PASSWORD: flowforge
+      POSTGRES_PASSWORD: ${FLOWFORGE_DB_PASSWORD:?Set FLOWFORGE_DB_PASSWORD in .env}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       # PostgreSQL 18 images keep data under /var/lib/postgresql/<major>/docker
       - postgres-data:/var/lib/postgresql
@@ -17,12 +15,45 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    restart: unless-stopped
 
   mailpit:
     image: axllent/mailpit:v1.31
     ports:
-      - "1025:1025"
-      - "8025:8025"
+      - "127.0.0.1:1025:1025"
+      - "127.0.0.1:8025:8025"
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    image: flowforge-backend
+    environment:
+      SPRING_PROFILES_ACTIVE: ${FLOWFORGE_PROFILES:-demo}
+      FLOWFORGE_DB_URL: jdbc:postgresql://postgres:5432/flowforge
+      FLOWFORGE_DB_USERNAME: flowforge
+      FLOWFORGE_DB_PASSWORD: ${FLOWFORGE_DB_PASSWORD}
+      FLOWFORGE_JWT_SECRET: ${FLOWFORGE_JWT_SECRET:?Set FLOWFORGE_JWT_SECRET in .env}
+      FLOWFORGE_SMTP_HOST: mailpit
+      FLOWFORGE_SMTP_PORT: 1025
+      FLOWFORGE_MAIL_FROM: ${FLOWFORGE_MAIL_FROM:-flowforge@localhost}
+      FLOWFORGE_DEMO_EMAIL: ${FLOWFORGE_DEMO_EMAIL:-demo@example.com}
+      FLOWFORGE_DEMO_PASSWORD: ${FLOWFORGE_DEMO_PASSWORD:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    image: flowforge-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   postgres-data:
